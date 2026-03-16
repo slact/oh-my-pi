@@ -606,13 +606,13 @@ export class SelectorController {
 					void this.ctx.shutdown();
 				},
 				async (sessionPath: string) => {
+					// If deleting the current session, close its writer first
+					const currentSessionFile = this.ctx.sessionManager.getSessionFile();
+					if (currentSessionFile === sessionPath) {
+						await this.ctx.sessionManager.close();
+					}
 					const storage = new FileSessionStorage();
 					await storage.unlink(sessionPath);
-					// Session already removed from array by component
-					if (sessions.length === 0) {
-						done();
-						this.ctx.ui.requestRender();
-					}
 				},
 			);
 			return { component: selector, focus: selector.getSessionList() };
@@ -668,6 +668,9 @@ export class SelectorController {
 			this.ctx.showStatus("Delete cancelled");
 			return;
 		}
+
+		// Close the session writer before deleting the file
+		await this.ctx.sessionManager.close();
 
 		// Delete the session file
 		await storage.unlink(sessionFile);

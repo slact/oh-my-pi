@@ -229,12 +229,15 @@ class SessionList implements Component {
 				if (this.#confirmDeleteIndex === 0) {
 					// Yes selected - delete the session
 					const sessionToDelete = this.#pendingDeleteSession;
-					if (sessionToDelete) {
-						// Update UI state synchronously (before async file deletion)
-						this.#removeSession(sessionToDelete.path);
-						if (this.onDelete) {
-							void this.onDelete(sessionToDelete.path);
-						}
+					if (sessionToDelete && this.onDelete) {
+						this.onDelete(sessionToDelete.path)
+							.then(() => {
+								this.#removeSession(sessionToDelete.path);
+							})
+							.catch(() => {
+								// Error handled by caller; reset confirmation state
+								this.#pendingDeleteSession = null;
+							});
 					}
 				} else {
 					// No selected - cancel

@@ -34,12 +34,6 @@ export async function selectSession(sessions: SessionInfo[]): Promise<string | n
 		},
 		async (sessionPath: string) => {
 			await storage.unlink(sessionPath);
-			// Session already removed from array by component
-			if (sessions.length === 0 && !resolved) {
-				resolved = true;
-				ui.stop();
-				resolve(null);
-			}
 		},
 	);
 
