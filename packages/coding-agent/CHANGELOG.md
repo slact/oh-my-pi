@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added `/session rename <name>` command to rename the current session
+
+
 ## [14.0.4] - 2026-04-10
 ### Added
 

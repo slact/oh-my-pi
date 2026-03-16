@@ -5,6 +5,7 @@ import { executeBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-comm
 function createRuntimeHarness(options?: {
 	handleSessionCommand?: InteractiveModeContext["handleSessionCommand"];
 	handleSessionDeleteCommand?: InteractiveModeContext["handleSessionDeleteCommand"];
+	handleSessionRenameCommand?: InteractiveModeContext["handleSessionRenameCommand"];
 }) {
 	const setText = vi.fn();
 	const handleSessionCommand =
@@ -17,16 +18,23 @@ function createRuntimeHarness(options?: {
 		vi.fn(async () => {
 			return;
 		});
+	const handleSessionRenameCommand =
+		options?.handleSessionRenameCommand ??
+		vi.fn(async () => {
+			return;
+		});
 
 	return {
 		setText,
 		handleSessionCommand,
 		handleSessionDeleteCommand,
+		handleSessionRenameCommand,
 		runtime: {
 			ctx: {
 				editor: { setText } as unknown as InteractiveModeContext["editor"],
 				handleSessionCommand,
 				handleSessionDeleteCommand,
+				handleSessionRenameCommand,
 			} as InteractiveModeContext,
 			handleBackgroundCommand: () => {},
 		},
@@ -104,6 +112,17 @@ describe("/session slash command", () => {
 
 		await expect(executeBuiltinSlashCommand("/session delete", harness.runtime)).rejects.toBe(deleteError);
 		expect(handleSessionDeleteCommand).toHaveBeenCalledTimes(1);
+		expect(harness.setText).toHaveBeenCalledWith("");
+	});
+	it("calls handleSessionRenameCommand with the provided name", async () => {
+		const handleSessionRenameCommand = vi.fn(async () => {
+			return;
+		});
+		const harness = createRuntimeHarness({ handleSessionRenameCommand });
+
+		await executeBuiltinSlashCommand("/session rename New Session", harness.runtime);
+
+		expect(handleSessionRenameCommand).toHaveBeenCalledWith("New Session");
 		expect(harness.setText).toHaveBeenCalledWith("");
 	});
 });
