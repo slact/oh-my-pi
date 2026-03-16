@@ -18,6 +18,7 @@ import {
 } from "../../modes/theme/theme";
 import type { InteractiveModeContext } from "../../modes/types";
 import { SessionManager } from "../../session/session-manager";
+import { FileSessionStorage } from "../../session/session-storage";
 import {
 	isCodeSearchProviderId,
 	isSearchProviderPreference,
@@ -604,6 +605,15 @@ export class SelectorController {
 				() => {
 					void this.ctx.shutdown();
 				},
+				async (sessionPath: string) => {
+					const storage = new FileSessionStorage();
+					await storage.unlink(sessionPath);
+					// Session already removed from array by component
+					if (sessions.length === 0) {
+						done();
+						this.ctx.ui.requestRender();
+					}
+				},
 			);
 			return { component: selector, focus: selector.getSessionList() };
 		});
@@ -632,6 +642,39 @@ export class SelectorController {
 		this.ctx.renderInitialMessages();
 		await this.ctx.reloadTodos();
 		this.ctx.showStatus("Resumed session");
+	}
+
+	async handleSessionDeleteCommand(): Promise<void> {
+		const sessionFile = this.ctx.sessionManager.getSessionFile();
+		if (!sessionFile) {
+			this.ctx.showError("No session file to delete (in-memory session)");
+			return;
+		}
+
+		// Check if session file exists (may not exist for brand new sessions)
+		const storage = new FileSessionStorage();
+		const fileExists = await storage.exists(sessionFile);
+		if (!fileExists) {
+			this.ctx.showError("Session has not been saved yet");
+			return;
+		}
+
+		const confirmed = await this.ctx.showHookConfirm(
+			"Delete Session",
+			"This will permanently delete the current session.\nYou will be returned to the session selector.",
+		);
+
+		if (!confirmed) {
+			this.ctx.showStatus("Delete cancelled");
+			return;
+		}
+
+		// Delete the session file
+		await storage.unlink(sessionFile);
+
+		// Show session selector
+		this.ctx.showStatus("Session deleted");
+		await this.showSessionSelector();
 	}
 
 	async #handleOAuthLogin(providerId: string): Promise<void> {

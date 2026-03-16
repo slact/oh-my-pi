@@ -1,15 +1,14 @@
-/**
- * TUI session selector for --resume flag
- */
 import { ProcessTerminal, TUI } from "@oh-my-pi/pi-tui";
 import { SessionSelectorComponent } from "../modes/components/session-selector";
 import type { SessionInfo } from "../session/session-manager";
+import { FileSessionStorage } from "../session/session-storage";
 
 /** Show TUI session selector and return selected session path or null if cancelled */
 export async function selectSession(sessions: SessionInfo[]): Promise<string | null> {
 	const { promise, resolve } = Promise.withResolvers<string | null>();
 	const ui = new TUI(new ProcessTerminal());
 	let resolved = false;
+	const storage = new FileSessionStorage();
 	const selector = new SessionSelectorComponent(
 		sessions,
 		(path: string) => {
@@ -31,6 +30,15 @@ export async function selectSession(sessions: SessionInfo[]): Promise<string | n
 				resolved = true;
 				ui.stop();
 				process.exit(0);
+			}
+		},
+		async (sessionPath: string) => {
+			await storage.unlink(sessionPath);
+			// Session already removed from array by component
+			if (sessions.length === 0 && !resolved) {
+				resolved = true;
+				ui.stop();
+				resolve(null);
 			}
 		},
 	);

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- Added `/session delete` command to delete current session with confirmation and return to session selector
+- Added session deletion in session selector via Delete key with confirmation dialog
+
+
 ## [13.12.8] - 2026-03-16
 
 ### Breaking Changes

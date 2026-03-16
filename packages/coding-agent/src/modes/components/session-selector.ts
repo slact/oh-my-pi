@@ -26,6 +26,10 @@ class SessionList implements Component {
 	onExit: () => void = () => {};
 	#maxVisible: number = 5; // Max sessions visible (each session is 3 lines: msg + metadata + blank)
 
+	#pendingDeleteSession: SessionInfo | null = null;
+	#confirmDeleteIndex: number = 0; // 0 = Yes, 1 = No
+	onDelete?: (sessionPath: string) => Promise<void>;
+
 	constructor(
 		private readonly allSessions: SessionInfo[],
 		private readonly showCwd = false,
@@ -59,12 +63,51 @@ class SessionList implements Component {
 		this.#selectedIndex = Math.min(this.#selectedIndex, Math.max(0, this.#filteredSessions.length - 1));
 	}
 
+	#removeSession(sessionPath: string): void {
+		const index = this.allSessions.findIndex(s => s.path === sessionPath);
+		if (index === -1) return;
+		this.allSessions.splice(index, 1);
+		// Re-filter to update filteredSessions
+		this.#filterSessions(this.#searchInput.getValue());
+		// Adjust selectedIndex if we deleted the last item or beyond
+		if (this.#selectedIndex >= this.#filteredSessions.length) {
+			this.#selectedIndex = Math.max(0, this.#filteredSessions.length - 1);
+		}
+		this.#pendingDeleteSession = null;
+	}
+
 	invalidate(): void {
 		// No cached state to invalidate currently
 	}
 
 	render(width: number): string[] {
 		const lines: string[] = [];
+
+		// If in delete confirmation mode, render confirmation overlay
+		if (this.#pendingDeleteSession) {
+			const session = this.#pendingDeleteSession;
+			const displayName = session.title || session.firstMessage.slice(0, 40) || session.id;
+			const truncatedName = truncateToWidth(displayName.replace(/\n/g, " "), width - 4);
+
+			lines.push("");
+			lines.push(theme.fg("error", "Delete session?"));
+			lines.push("");
+			lines.push(theme.fg("dim", `  ${truncatedName}`));
+			lines.push("");
+
+			// Render Yes/No options
+			const options = ["Yes", "No"];
+			for (let i = 0; i < options.length; i++) {
+				const isSelected = i === this.#confirmDeleteIndex;
+				const prefix = isSelected ? theme.fg("accent", `${theme.nav.cursor} `) : "  ";
+				const text = isSelected ? theme.fg("accent", options[i]) : options[i];
+				lines.push(prefix + text);
+			}
+
+			lines.push("");
+			lines.push(theme.fg("muted", "  [↑↓ to select, Enter/Delete to confirm, Esc to cancel]"));
+			return lines;
+		}
 
 		// Render search input
 		lines.push(...this.#searchInput.render(width));
@@ -157,10 +200,66 @@ class SessionList implements Component {
 			lines.push(scrollInfo);
 		}
 
+		// Add keybinding hint
+		lines.push("");
+		lines.push(theme.fg("muted", "  [Del to delete, Enter to select, Esc to cancel]"));
+
 		return lines;
 	}
 
 	handleInput(keyData: string): void {
+		// Handle delete confirmation mode first
+		if (this.#pendingDeleteSession) {
+			// Up/Down - navigate Yes/No options
+			if (matchesKey(keyData, "up")) {
+				this.#confirmDeleteIndex = this.#confirmDeleteIndex === 0 ? 1 : 0;
+				return;
+			}
+			if (matchesKey(keyData, "down")) {
+				this.#confirmDeleteIndex = this.#confirmDeleteIndex === 0 ? 1 : 0;
+				return;
+			}
+			// Enter or Delete - confirm selection
+			if (
+				matchesKey(keyData, "enter") ||
+				matchesKey(keyData, "return") ||
+				keyData === "\n" ||
+				matchesKey(keyData, "delete")
+			) {
+				if (this.#confirmDeleteIndex === 0) {
+					// Yes selected - delete the session
+					const sessionToDelete = this.#pendingDeleteSession;
+					if (sessionToDelete) {
+						// Update UI state synchronously (before async file deletion)
+						this.#removeSession(sessionToDelete.path);
+						if (this.onDelete) {
+							void this.onDelete(sessionToDelete.path);
+						}
+					}
+				} else {
+					// No selected - cancel
+					this.#pendingDeleteSession = null;
+				}
+				return;
+			}
+			// Escape - cancel confirmation
+			if (matchesKey(keyData, "escape") || matchesKey(keyData, "esc")) {
+				this.#pendingDeleteSession = null;
+				return;
+			}
+			return;
+		}
+
+		// Delete key - initiate delete confirmation
+		if (matchesKey(keyData, "delete")) {
+			const selected = this.#filteredSessions[this.#selectedIndex];
+			if (selected) {
+				this.#pendingDeleteSession = selected;
+				this.#confirmDeleteIndex = 0; // Default to Yes
+			}
+			return;
+		}
+
 		// Up arrow
 		if (matchesKey(keyData, "up")) {
 			this.#selectedIndex = Math.max(0, this.#selectedIndex - 1);
@@ -213,6 +312,7 @@ export class SessionSelectorComponent extends Container {
 		onSelect: (sessionPath: string) => void,
 		onCancel: () => void,
 		onExit: () => void,
+		onDelete?: (sessionPath: string) => Promise<void>,
 	) {
 		super();
 
@@ -228,7 +328,7 @@ export class SessionSelectorComponent extends Container {
 		this.#sessionList.onSelect = onSelect;
 		this.#sessionList.onCancel = onCancel;
 		this.#sessionList.onExit = onExit;
-
+		this.#sessionList.onDelete = onDelete;
 		this.addChild(this.#sessionList);
 
 		// Add bottom border
