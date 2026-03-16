@@ -605,27 +605,23 @@ export class SelectorController {
 				() => {
 					void this.ctx.shutdown();
 				},
-				(session: SessionInfo) => {
-					// Request delete - parent (this controller) will show confirmation
-					const displayName = session.title || session.firstMessage.slice(0, 40) || session.id;
-					void this.ctx.showHookConfirm(
-						"Delete Session",
-						`Delete "${displayName}"?`,
-				).then(async confirmed => {
-					if (!confirmed) return;
+				async (session: SessionInfo) => {
 					// If deleting the current session, close its writer first
 					const currentSessionFile = this.ctx.sessionManager.getSessionFile();
 					if (currentSessionFile === session.path) {
 						await this.ctx.sessionManager.close();
 					}
 					const storage = new FileSessionStorage();
-					await storage.deleteSessionWithArtifacts(session.path);
-					selector.getSessionList().removeSession(session.path);
-					this.ctx.ui.requestRender();
-				});
+					try {
+						await storage.deleteSessionWithArtifacts(session.path);
+					} catch (err) {
+						const errorMsg = err instanceof Error ? err.message : String(err);
+						this.ctx.showError(`Failed to delete session: ${errorMsg}`);
+					}
 				},
 			);
-			return { component: selector, focus: selector.getSessionList() };
+			selector.setOnRequestRender(() => this.ctx.ui.requestRender());
+			return { component: selector, focus: selector };
 		});
 	}
 

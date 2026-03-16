@@ -1,5 +1,4 @@
 import { ProcessTerminal, TUI } from "@oh-my-pi/pi-tui";
-import { HookSelectorComponent } from "../modes/components/hook-selector";
 import { SessionSelectorComponent } from "../modes/components/session-selector";
 import type { SessionInfo } from "../session/session-manager";
 import { FileSessionStorage } from "../session/session-storage";
@@ -35,43 +34,24 @@ export async function selectSession(sessions: SessionInfo[]): Promise<string | n
 					process.exit(0);
 				}
 			},
-			(session: SessionInfo) => {
-				// Show confirmation dialog using HookSelectorComponent (standard pattern)
-				const displayName = session.title || session.firstMessage.slice(0, 40) || session.id;
-				const confirm = new HookSelectorComponent(
-					`Delete session?\n${displayName}`,
-					["Yes", "No"],
-					async (option: string) => {
-					if (option === "Yes") {
-						// Confirmed - delete the session
+			async (session: SessionInfo) => {
+				// Delete handler - SessionList will show confirmation internally
+				try {
 					await storage.deleteSessionWithArtifacts(session.path);
-						selector.getSessionList().removeSession(session.path);
-					}
-						// Return to selector either way
-						ui.removeChild(confirm);
-						ui.addChild(selector);
-						ui.setFocus(selector.getSessionList());
-						ui.requestRender();
-					},
-					() => {
-						// Cancelled - return to selector
-						ui.removeChild(confirm);
-						ui.addChild(selector);
-						ui.setFocus(selector.getSessionList());
-						ui.requestRender();
-					},
-				);
-				ui.removeChild(selector);
-				ui.addChild(confirm);
-				ui.setFocus(confirm);
+				} catch (err) {
+					const errorMsg = err instanceof Error ? err.message : String(err);
+					console.error(`Failed to delete session: ${errorMsg}`);
+					throw err; // Re-throw so SessionList knows deletion failed
+				}
 			},
 		);
 		return selector;
 	};
 
 	const selector = showSelector();
+	selector.setOnRequestRender(() => ui.requestRender());
 	ui.addChild(selector);
-	ui.setFocus(selector.getSessionList());
+	ui.setFocus(selector);
 	ui.start();
 	return promise;
 }
