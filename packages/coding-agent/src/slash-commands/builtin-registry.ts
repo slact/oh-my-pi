@@ -233,17 +233,27 @@ const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<BuiltinSlashCommandSpec> = [
 		subcommands: [
 			{ name: "info", description: "Show session info and stats" },
 			{ name: "delete", description: "Delete current session and return to selector" },
+			{ name: "rename", description: "Rename the session", usage: "[new-name]" },
 		],
 		allowArgs: true,
 		handle: async (command, runtime) => {
-			const sub = command.args.trim().toLowerCase() || "info";
-			if (sub === "delete") {
+			const args = command.args.trim();
+			const parts = args.split(/\s+/).filter(Boolean);
+			const subcommand = parts[0];
+			const rest = parts.slice(1);
+
+			if (subcommand === "delete") {
 				runtime.ctx.editor.setText("");
 				await runtime.ctx.handleSessionDeleteCommand();
 				return;
 			}
-			// Default: show session info
-			await runtime.ctx.handleSessionCommand();
+			if (subcommand === "rename") {
+				const newName = rest.join(" ") || undefined;
+				await runtime.ctx.handleSessionRenameCommand(newName);
+			} else {
+				// Default: show session info
+				await runtime.ctx.handleSessionCommand();
+			}
 			runtime.ctx.editor.setText("");
 		},
 	},
