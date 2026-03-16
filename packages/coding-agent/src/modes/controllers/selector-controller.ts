@@ -17,7 +17,7 @@ import {
 	theme,
 } from "../../modes/theme/theme";
 import type { InteractiveModeContext } from "../../modes/types";
-import { SessionManager } from "../../session/session-manager";
+import { SessionManager, type SessionInfo } from "../../session/session-manager";
 import { FileSessionStorage } from "../../session/session-storage";
 import {
 	isCodeSearchProviderId,
@@ -605,14 +605,24 @@ export class SelectorController {
 				() => {
 					void this.ctx.shutdown();
 				},
-				async (sessionPath: string) => {
+				(session: SessionInfo) => {
+					// Request delete - parent (this controller) will show confirmation
+					const displayName = session.title || session.firstMessage.slice(0, 40) || session.id;
+					void this.ctx.showHookConfirm(
+						"Delete Session",
+						`Delete "${displayName}"?`,
+				).then(async confirmed => {
+					if (!confirmed) return;
 					// If deleting the current session, close its writer first
 					const currentSessionFile = this.ctx.sessionManager.getSessionFile();
-					if (currentSessionFile === sessionPath) {
+					if (currentSessionFile === session.path) {
 						await this.ctx.sessionManager.close();
 					}
 					const storage = new FileSessionStorage();
-					await storage.unlink(sessionPath);
+					await storage.deleteSessionWithArtifacts(session.path);
+					selector.getSessionList().removeSession(session.path);
+					this.ctx.ui.requestRender();
+				});
 				},
 			);
 			return { component: selector, focus: selector.getSessionList() };
@@ -672,8 +682,8 @@ export class SelectorController {
 		// Close the session writer before deleting the file
 		await this.ctx.sessionManager.close();
 
-		// Delete the session file
-		await storage.unlink(sessionFile);
+		// Delete the session file and artifacts directory
+		await storage.deleteSessionWithArtifacts(sessionFile);
 
 		// Show session selector
 		this.ctx.showStatus("Session deleted");
