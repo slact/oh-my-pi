@@ -235,11 +235,11 @@ const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<BuiltinSlashCommandSpec> = [
 			{ name: "delete", description: "Delete current session and return to selector" },
 		],
 		allowArgs: true,
-		handle: (command, runtime) => {
+		handle: async (command, runtime) => {
 			const sub = command.args.trim().toLowerCase() || "info";
 			if (sub === "delete") {
 				runtime.ctx.editor.setText("");
-				void runtime.ctx.handleSessionDeleteCommand();
+				await runtime.ctx.handleSessionDeleteCommand();
 				return;
 			}
 			// Default: show session info
