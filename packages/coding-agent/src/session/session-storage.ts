@@ -197,11 +197,15 @@ export class FileSessionStorage implements SessionStorage {
 		// Compute artifacts directory: /path/to/session.jsonl -> /path/to/session
 		const artifactsDir = sessionPath.slice(0, -6);
 
-		// Delete artifacts directory if it exists (not a fatal error if it doesn't)
+		// Delete artifacts directory if it exists. Missing directories are fine, but
+		// surface real cleanup failures because the session file is already gone.
 		try {
 			await fsp.rm(artifactsDir, { recursive: true, force: true });
-		} catch {
-			// Artifacts already gone or inaccessible - not a fatal error
+		} catch (err) {
+			const error = toError(err);
+			throw new Error(`Session file deleted but failed to remove artifacts directory ${artifactsDir}: ${error.message}`, {
+				cause: error,
+			});
 		}
 	}
 }
