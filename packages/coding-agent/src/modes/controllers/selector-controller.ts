@@ -615,6 +615,7 @@ export class SelectorController {
 					} catch (err) {
 						const errorMsg = err instanceof Error ? err.message : String(err);
 						this.ctx.showError(`Failed to delete session: ${errorMsg}`);
+						throw err;
 					}
 				},
 			);
