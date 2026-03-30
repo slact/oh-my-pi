@@ -431,6 +431,7 @@ export class CommandController {
 			}
 
 			await this.ctx.sessionManager.setSessionName(newName);
+			setSessionTerminalTitle(newName, this.ctx.sessionManager.getCwd());
 			this.ctx.showStatus(`Session renamed to: ${newName}`);
 			this.ctx.statusLine.invalidate();
 			this.ctx.updateEditorTopBorder();
