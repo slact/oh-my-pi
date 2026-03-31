@@ -36,13 +36,33 @@ export function getBundledModels(provider: GeneratedProvider): Model<Api>[] {
 }
 
 export function calculateCost<TApi extends Api>(model: Model<TApi>, usage: Usage): Usage["cost"] {
-	usage.cost.input = (model.cost.input / 1000000) * usage.input;
-	usage.cost.output = (model.cost.output / 1000000) * usage.output;
-	usage.cost.cacheRead = (model.cost.cacheRead / 1000000) * usage.cacheRead;
-	usage.cost.cacheWrite = (model.cost.cacheWrite / 1000000) * usage.cacheWrite;
+	// If OpenRouter actual cost is present, use it as the total
+	if (usage.actualCost !== undefined) {
+		usage.cost.total = usage.actualCost;
+		// Populate breakdown from costDetails if available
+		const d = usage.costDetails;
+		if (d) {
+			if (d.upstreamInferenceInputCost !== undefined) usage.cost.input = d.upstreamInferenceInputCost;
+			if (d.upstreamInferenceOutputCost !== undefined) usage.cost.output = d.upstreamInferenceOutputCost;
+			// upstreamInferenceCost is not directly mapped; may represent combined input+output
+		}
+		// Fill any remaining zero breakdown fields with estimated values based on token counts
+		if (usage.cost.input === 0) usage.cost.input = (model.cost.input / 1_000_000) * usage.input;
+		if (usage.cost.output === 0) usage.cost.output = (model.cost.output / 1_000_000) * usage.output;
+		if (usage.cost.cacheRead === 0) usage.cost.cacheRead = (model.cost.cacheRead / 1_000_000) * usage.cacheRead;
+		if (usage.cost.cacheWrite === 0) usage.cost.cacheWrite = (model.cost.cacheWrite / 1_000_000) * usage.cacheWrite;
+		return usage.cost;
+	}
+
+	// No actual cost: estimate from token counts and model pricing
+	usage.cost.input = (model.cost.input / 1_000_000) * usage.input;
+	usage.cost.output = (model.cost.output / 1_000_000) * usage.output;
+	usage.cost.cacheRead = (model.cost.cacheRead / 1_000_000) * usage.cacheRead;
+	usage.cost.cacheWrite = (model.cost.cacheWrite / 1_000_000) * usage.cacheWrite;
 	usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
 	return usage.cost;
 }
+
 /**
  * Check if two models are equal by comparing both their id and provider.
  * Returns false if either model is null or undefined.

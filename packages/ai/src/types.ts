@@ -1,6 +1,9 @@
 import type { TSchema } from "@sinclair/typebox";
+// OpenRouter cost tracking fields
+// test
 import type { BedrockOptions } from "./providers/amazon-bedrock";
 import type { AnthropicOptions } from "./providers/anthropic";
+// test after import
 import type { AzureOpenAIResponsesOptions } from "./providers/azure-openai-responses";
 import type { CursorOptions } from "./providers/cursor";
 import type {
@@ -290,6 +293,13 @@ export interface Usage {
 	cacheWrite: number;
 	totalTokens: number;
 	premiumRequests?: number;
+	actualCost?: number;
+	costDetails?: {
+		upstreamInferenceInputCost?: number;
+		upstreamInferenceOutputCost?: number;
+		upstreamInferenceCost?: number;
+	};
+	isByok?: boolean;
 	cost: {
 		input: number;
 		output: number;
