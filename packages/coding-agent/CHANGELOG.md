@@ -6,6 +6,9 @@
 
 ## [Unreleased]
 
+### Added
+- Added API call cost to response info footer
+
 ## [13.17.0] - 2026-03-30
 
 ### Added
