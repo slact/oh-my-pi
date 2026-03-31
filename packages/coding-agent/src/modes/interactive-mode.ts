@@ -1077,6 +1077,10 @@ export class InteractiveMode implements InteractiveModeContext {
 		return this.#commandController.handleJobsCommand();
 	}
 
+	async handleSessionRenameCommand(newName?: string): Promise<void> {
+		return this.#commandController.handleSessionRenameCommand(newName);
+	}
+
 	handleUsageCommand(reports?: UsageReport[] | null): Promise<void> {
 		return this.#commandController.handleUsageCommand(reports);
 	}

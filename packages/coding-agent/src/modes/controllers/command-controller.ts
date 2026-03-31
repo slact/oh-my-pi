@@ -410,6 +410,25 @@ export class CommandController {
 		this.ctx.ui.requestRender();
 	}
 
+	async handleSessionRenameCommand(newName?: string): Promise<void> {
+		try {
+			if (!newName) {
+				this.ctx.showError("Please provide a session name: /session rename <name>");
+				return;
+			}
+
+			await this.ctx.sessionManager.setSessionName(newName);
+			setSessionTerminalTitle(newName, this.ctx.sessionManager.getCwd());
+			this.ctx.showStatus(`Session renamed to: ${newName}`);
+			this.ctx.statusLine.invalidate();
+			this.ctx.updateEditorTopBorder();
+			this.ctx.ui.requestRender();
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			this.ctx.showWarning(`Error renaming session: ${msg}`);
+		}
+	}
+
 	async handleJobsCommand(): Promise<void> {
 		const snapshot = this.ctx.session.getAsyncJobSnapshot({ recentLimit: 5 });
 		if (!snapshot) {
