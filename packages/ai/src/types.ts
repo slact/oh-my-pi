@@ -1,6 +1,9 @@
-import type { ZodType, z } from "zod/v4";
+import type { TSchema } from "@sinclair/typebox";
+// OpenRouter cost tracking fields
+// test
 import type { BedrockOptions } from "./providers/amazon-bedrock";
 import type { AnthropicOptions } from "./providers/anthropic";
+// test after import
 import type { AzureOpenAIResponsesOptions } from "./providers/azure-openai-responses";
 import type { CursorOptions } from "./providers/cursor";
 import type {
@@ -23,7 +26,6 @@ import type {
 import type { GoogleOptions } from "./providers/google";
 import type { GoogleGeminiCliOptions } from "./providers/google-gemini-cli";
 import type { GoogleVertexOptions } from "./providers/google-vertex";
-import type { OllamaChatOptions } from "./providers/ollama";
 import type { OpenAICodexResponsesOptions } from "./providers/openai-codex-responses";
 import type { OpenAICompletionsOptions } from "./providers/openai-completions";
 import type { OpenAIResponsesOptions } from "./providers/openai-responses";
@@ -41,7 +43,6 @@ export type KnownApi =
 	| "google-generative-ai"
 	| "google-gemini-cli"
 	| "google-vertex"
-	| "ollama-chat"
 	| "cursor-agent";
 export type Api = KnownApi | (string & {});
 export interface ApiOptionsMap {
@@ -54,7 +55,6 @@ export interface ApiOptionsMap {
 	"google-generative-ai": GoogleOptions;
 	"google-gemini-cli": GoogleGeminiCliOptions;
 	"google-vertex": GoogleVertexOptions;
-	"ollama-chat": OllamaChatOptions;
 	"cursor-agent": CursorOptions;
 }
 // Compile-time exhaustiveness check - this will fail if ApiOptionsMap doesn't have all KnownApi keys
@@ -64,7 +64,7 @@ type _CheckExhaustive =
 			? true
 			: ["ApiOptionsMap is missing some KnownApi values", Exclude<KnownApi, keyof ApiOptionsMap>]
 		: ["ApiOptionsMap doesn't extend Record<KnownApi, StreamOptions>"];
-true satisfies _CheckExhaustive;
+const _exhaustive: _CheckExhaustive = true;
 export type OptionsForApi<TApi extends Api> =
 	| StreamOptions
 	| (TApi extends keyof ApiOptionsMap ? ApiOptionsMap[TApi] : never);
@@ -83,14 +83,6 @@ export interface ThinkingConfig {
 	minLevel: Effort;
 	/** Most intensive supported user-facing effort level. */
 	maxLevel: Effort;
-	/**
-	 * Optional explicit list of supported levels. When present, takes precedence over
-	 * the `minLevel`..`maxLevel` range — used to encode discrete sets with gaps
-	 * (e.g. Gemini 3 Pro supports `low` and `high` but not `medium`).
-	 */
-	levels?: readonly Effort[];
-	/** Optional default effort applied when this model is selected. Falls back to global default if absent. */
-	defaultLevel?: Effort;
 	/** Provider-specific transport used to encode the selected effort. */
 	mode: ThinkingControlMode;
 }
@@ -109,20 +101,15 @@ export type KnownProvider =
 	| "minimax-code"
 	| "minimax-code-cn"
 	| "github-copilot"
-	| "fireworks"
-	| "firepass"
 	| "gitlab-duo"
 	| "cursor"
-	| "deepseek"
 	| "xai"
-	| "xai-oauth"
 	| "groq"
 	| "cerebras"
 	| "openrouter"
 	| "kilo"
 	| "vercel-ai-gateway"
 	| "zai"
-	| "zhipu-coding-plan"
 	| "mistral"
 	| "minimax"
 	| "opencode-go"
@@ -135,18 +122,12 @@ export type KnownProvider =
 	| "nvidia"
 	| "nanogpt"
 	| "ollama"
-	| "ollama-cloud"
 	| "qianfan"
 	| "qwen-portal"
 	| "together"
 	| "venice"
 	| "vllm"
 	| "xiaomi"
-	| "xiaomi-token-plan-sgp"
-	| "xiaomi-token-plan-ams"
-	| "xiaomi-token-plan-cn"
-	| "wafer-pass"
-	| "wafer-serverless"
 	| "zenmux"
 	| "lm-studio";
 export type Provider = KnownProvider | string;
@@ -155,12 +136,6 @@ import type { Effort } from "./model-thinking";
 
 /** Token budgets for each thinking level (token-based providers only) */
 export type ThinkingBudgets = { [key in Effort]?: number };
-
-export interface TokenTaskBudget {
-	type: "tokens";
-	total: number;
-	remaining?: number;
-}
 
 export type MessageAttribution = "user" | "agent";
 
@@ -176,105 +151,16 @@ export type ToolChoice =
 // Base options all providers share
 export type CacheRetention = "none" | "short" | "long";
 
-/**
- * Service tier hint for processing priority / cost control.
- *
- * The unscoped values (`"auto"`, `"default"`, `"flex"`, `"scale"`,
- * `"priority"`) are passed through to providers that understand them
- * (OpenAI's `service_tier` field directly; Anthropic translates
- * `"priority"` into `speed: "fast"` on supported Opus models).
- *
- * The scoped values target a specific provider family and behave as the
- * unscoped value on the matching provider, or `undefined` everywhere else.
- * They let users opt into priority on one family without paying premium
- * costs on the other when switching models mid-session.
- *
- * - `"openai-only"` → `"priority"` on `openai` and `openai-codex`; ignored elsewhere.
- * - `"claude-only"` → `"priority"` on direct `anthropic` (not Bedrock/Vertex Claude).
- */
-export type ServiceTier = "auto" | "default" | "flex" | "scale" | "priority" | "openai-only" | "claude-only";
+/** OpenAI service tier for processing priority. Only applies to OpenAI-compatible APIs. */
+export type ServiceTier = "auto" | "default" | "flex" | "scale" | "priority";
 
-/** Resolved tier — one of the values that providers actually consume on the wire. */
-export type ResolvedServiceTier = Exclude<ServiceTier, "openai-only" | "claude-only">;
-
-/**
- * Resolves a possibly scoped `ServiceTier` to the effective tier for the
- * given provider. Scoped values match their target family and otherwise
- * collapse to `undefined`; unscoped values pass through unchanged.
- */
-export function resolveServiceTier(
-	serviceTier: ServiceTier | null | undefined,
-	provider: Provider | undefined,
-): ResolvedServiceTier | undefined {
-	if (!serviceTier) return undefined;
-	switch (serviceTier) {
-		case "openai-only":
-			return provider === "openai" || provider === "openai-codex" ? "priority" : undefined;
-		case "claude-only":
-			return provider === "anthropic" ? "priority" : undefined;
-		default:
-			return serviceTier;
-	}
-}
-
-/**
- * True when the (possibly scoped) tier should be sent as OpenAI's
- * `service_tier` request field for the given provider. Non-OpenAI
- * providers, unsupported tiers (`"auto"`, `"default"`), and scope
- * mismatches all return false.
- */
-export function shouldSendServiceTier(
-	serviceTier: ServiceTier | null | undefined,
-	provider: Provider | undefined,
-): boolean {
-	if (provider !== "openai" && provider !== "openai-codex") return false;
-	const resolved = resolveServiceTier(serviceTier, provider);
-	return resolved === "flex" || resolved === "scale" || resolved === "priority";
-}
-
-/**
- * Premium-request weight contributed by sending priority to a provider
- * that supports it. Mirrors GitHub Copilot's `premiumRequests` accounting
- * so the "premium requests" stat aggregates priority traffic across the
- * OpenAI family and Anthropic fast-mode realizations.
- *
- * Returns 1 per resolved priority request, 0 otherwise.
- */
-export function getPriorityPremiumRequests(
-	serviceTier: ServiceTier | null | undefined,
-	provider: Provider | undefined,
-): number {
-	if (resolveServiceTier(serviceTier, provider) !== "priority") return 0;
-	// Only providers that realize `priority` on the wire bill the user.
-	// Everywhere else, the field is silently dropped and nothing is charged.
-	return provider === "openai" || provider === "openai-codex" || provider === "anthropic" ? 1 : 0;
+export function isSpecialServiceTier(serviceTier?: ServiceTier | null): serviceTier is "flex" | "scale" | "priority" {
+	return serviceTier === "flex" || serviceTier === "scale" || serviceTier === "priority";
 }
 
 export interface ProviderSessionState {
 	close(): void;
 }
-
-export interface ProviderResponseMetadata {
-	status: number;
-	headers: Record<string, string>;
-	requestId?: string | null;
-	metadata?: Record<string, unknown>;
-}
-
-export interface RawSseEvent {
-	event: string | null;
-	data: string;
-	raw: string[];
-}
-
-/**
- * `fetch`-compatible function. Accepts any callable matching the standard
- * fetch signature; `preconnect` is optional because non-Bun runtimes (browsers,
- * test mocks) won't expose it.
- */
-export type FetchImpl = ((input: string | URL | Request, init?: RequestInit) => Promise<Response>) & {
-	preconnect?: typeof globalThis.fetch.preconnect;
-};
 
 export interface StreamOptions {
 	temperature?: number;
@@ -283,27 +169,9 @@ export interface StreamOptions {
 	minP?: number;
 	presencePenalty?: number;
 	repetitionPenalty?: number;
-	/**
-	 * Stop sequences. Anthropic encodes as `stop_sequences` (array, max 4);
-	 * OpenAI chat-completions encodes as `stop` (string or array of up to 4);
-	 * OpenAI Responses API has no `stop` field today (silently dropped by the
-	 * provider when present).
-	 */
-	stopSequences?: string[];
-	/**
-	 * Frequency penalty (OpenAI). Penalizes new tokens based on existing frequency
-	 * in the text so far. Range -2.0 to 2.0. Parallel to {@link presencePenalty}.
-	 */
-	frequencyPenalty?: number;
 	maxTokens?: number;
 	signal?: AbortSignal;
 	apiKey?: string;
-	/**
-	 * Called when a provider returns 401 before any replay-unsafe assistant
-	 * event has been emitted. Returning a different key retries the provider
-	 * request once.
-	 */
-	onAuthError?: (provider: string, apiKey: string, error: unknown) => Promise<string | undefined>;
 	cacheRetention?: CacheRetention;
 	/**
 	 * Additional headers to include in provider requests.
@@ -329,22 +197,11 @@ export interface StreamOptions {
 	 */
 	metadata?: Record<string, unknown>;
 	/**
-	 * Advisory token budget for a full agentic loop. Anthropic encodes this as
-	 * `output_config.task_budget` with the `task-budgets-2026-03-13` beta header.
-	 */
-	taskBudget?: TokenTaskBudget;
-	/**
-	 * Optional session identifier for providers that support session-based
-	 * routing, request affinity, or transport reuse. Providers may also use this
-	 * as the prompt-cache key when `promptCacheKey` is not set.
+	 * Optional session identifier for providers that support session-based caching.
+	 * Providers can use this to enable prompt caching, request routing, or other
+	 * session-aware features. Ignored by providers that don't support it.
 	 */
 	sessionId?: string;
-	/**
-	 * Optional prompt-cache identity. When set, OpenAI Responses-compatible
-	 * providers use this for `prompt_cache_key` while keeping `sessionId` for
-	 * provider routing / conversation headers.
-	 */
-	promptCacheKey?: string;
 	/**
 	 * Provider-scoped mutable state store for this agent session.
 	 * Providers can use this to persist transport/session state between turns.
@@ -356,60 +213,10 @@ export interface StreamOptions {
 	 */
 	onPayload?: (payload: unknown, model?: Model<Api>) => unknown | undefined | Promise<unknown | undefined>;
 	/**
-	 * Optional callback for provider response metadata after headers are received.
-	 */
-	onResponse?: (response: ProviderResponseMetadata, model?: Model<Api>) => void | Promise<void>;
-	/**
-	 * Optional callback for raw Server-Sent Events as they arrive from HTTP streaming providers,
-	 * plus synthesized SSE-shaped frames for the Codex WebSocket transport (one synthetic frame
-	 * per JSON request/response message). WebSocket frames are tagged with a leading
-	 * `: ws → <type>` (outbound) or `: ws ← <type>` (inbound) comment line in `RawSseEvent.raw`.
-	 *
-	 * Diagnostic only: provider implementations must ignore callback failures and must not
-	 * let observers alter stream contents.
-	 */
-	onSseEvent?: (event: RawSseEvent, model?: Model<Api>) => void;
-	/**
-	 * Optional override for the first-event watchdog in milliseconds. Built-in
-	 * providers apply this budget twice when they can: once to the underlying
-	 * SDK/request while waiting for the HTTP stream object to exist, then again
-	 * in the iterator while waiting for the first semantic stream event. Set to
-	 * `0` to disable both layers for this request. After the first semantic
-	 * event arrives, `streamIdleTimeoutMs` governs inter-event stalls. Falls
-	 * back to `PI_STREAM_FIRST_EVENT_TIMEOUT_MS` and then to a 100s default.
-	 * OpenAI-family transports additionally honor
-	 * `PI_OPENAI_STREAM_FIRST_EVENT_TIMEOUT_MS` as the most-specific override and
-	 * floor the first-event budget at the resolved idle (per-call
-	 * `streamIdleTimeoutMs` or `PI_OPENAI_STREAM_IDLE_TIMEOUT_MS`) so slow local
-	 * OpenAI-compatible servers are not undercut during prompt processing.
-	 *
-	 * Iterator-level honored by: every built-in provider (via the lazy-stream
-	 * forwarder in `register-builtins`). SDK-request honored by:
-	 * `openai-completions`, `openai-responses`, `azure-openai-responses`,
-	 * `anthropic-messages`.
+	 * Optional override for the first streamed event watchdog in milliseconds.
+	 * Set to 0 to disable the first-event watchdog for this request.
 	 */
 	streamFirstEventTimeoutMs?: number;
-	/**
-	 * Optional override for the maximum idle gap between streamed events in
-	 * milliseconds. Once the first event arrives, this guards against silent
-	 * mid-stream stalls (broker dies, half-open socket, model produces no real
-	 * progress for too long). Set to `0` to disable. Falls back to
-	 * `PI_STREAM_IDLE_TIMEOUT_MS` (alias: `PI_OPENAI_STREAM_IDLE_TIMEOUT_MS`)
-	 * and then to a 120s default.
-	 */
-	streamIdleTimeoutMs?: number;
-	/**
-	 * Optional retry delay hook for tests and transports that need custom scheduling.
-	 */
-	providerRetryWait?: (delayMs: number, signal?: AbortSignal) => Promise<void>;
-	/**
-	 * Optional `fetch` implementation override. Providers route every HTTP
-	 * request — direct calls, SDK clients, and retry helpers — through this
-	 * implementation when set. Defaults to `globalThis.fetch`. Providers that
-	 * do not use `fetch` (Bedrock's AWS SDK transport, Cursor's HTTP/2
-	 * channel) silently ignore the override.
-	 */
-	fetch?: FetchImpl;
 	/** Cursor exec/MCP tool handlers (cursor-agent only). */
 	execHandlers?: CursorExecHandlers;
 }
@@ -417,23 +224,6 @@ export interface StreamOptions {
 // Unified options with reasoning passed to streamSimple() and completeSimple()
 export interface SimpleStreamOptions extends StreamOptions {
 	reasoning?: Effort;
-	/**
-	 * Force-disable reasoning for the request even when the model supports it.
-	 * Takes precedence over `reasoning`. Useful for fast utility calls
-	 * (e.g. title generation) where the model would otherwise burn the entire
-	 * output budget on internal thinking. Provider support is format-specific:
-	 * some transports can disable reasoning directly, while generic
-	 * effort-based OpenAI-compatible endpoints use the lowest supported effort.
-	 */
-	disableReasoning?: boolean;
-	/**
-	 * If true, request that the provider omit thinking/reasoning summaries
-	 * from the response (e.g. Anthropic `thinking.display = "omitted"`,
-	 * OpenAI Responses `reasoning.summary` left unset). The model still
-	 * reasons internally; only the human-readable summary stream is dropped.
-	 * Useful when the UI hides thinking blocks anyway and the summary is wasted bandwidth.
-	 */
-	hideThinkingSummary?: boolean;
 	/** Custom token budgets for thinking levels (token-based providers only) */
 	thinkingBudgets?: ThinkingBudgets;
 	/** Cursor exec handlers for local tool execution */
@@ -450,16 +240,6 @@ export interface SimpleStreamOptions extends StreamOptions {
 	syntheticApiFormat?: "openai" | "anthropic";
 	/** Hint that websocket transport should be preferred when supported by the provider implementation. */
 	preferWebsockets?: boolean;
-	/**
-	 * OpenRouter routing-variant suffix automatically appended to model IDs when
-	 * the request targets OpenRouter (`model.provider === "openrouter"`). Common
-	 * values: `"nitro"` (throughput), `"floor"` (cheapest), `"online"` (web
-	 * search plugin), `"exacto"` (cherry-picked high-quality providers, only
-	 * defined for some models). Ignored when the resolved model id already
-	 * contains a `:<variant>` suffix (e.g. the user typed `:nitro` explicitly
-	 * or the catalog entry already names the variant).
-	 */
-	openrouterVariant?: string;
 }
 
 // Generic StreamFunction with typed options
@@ -485,7 +265,6 @@ export interface ThinkingContent {
 	type: "thinking";
 	thinking: string;
 	thinkingSignature?: string; // e.g., for OpenAI responses, the reasoning item ID
-	itemId?: string; // item.id from output_item.added, used to match output_item.done
 }
 
 export interface RedactedThinkingContent {
@@ -506,60 +285,29 @@ export interface ToolCall {
 	arguments: Record<string, any>;
 	thoughtSignature?: string; // Google-specific: opaque signature for reusing thought context
 	intent?: string; // Harness-level intent metadata extracted from traced tool arguments
-	/**
-	 * Original wire-level name when the tool was invoked via OpenAI's custom-tool
-	 * mechanism (e.g., `apply_patch`). Set by `openai-responses` on receive so
-	 * the history-replay path can re-emit the call as `custom_tool_call` with
-	 * its paired tool-result as `custom_tool_call_output`. Absent for regular
-	 * JSON function tools.
-	 */
-	customWireName?: string;
 }
 
 export interface Usage {
-	/** Non-cached input tokens (matches the bucket the provider bills as new input). */
 	input: number;
-	/** Total output tokens for the turn, including thinking, assistant text, and tool-call argument tokens. */
 	output: number;
-	/** Tokens read from the prompt cache. */
 	cacheRead: number;
-	/** Tokens written to the prompt cache (cache creation). */
 	cacheWrite: number;
-	/** Sum of input + output + cacheRead + cacheWrite. */
 	totalTokens: number;
-	/** Copilot premium-request counter, when applicable. */
 	premiumRequests?: number;
-	/**
-	 * Reasoning/thinking tokens included in `output`, when the provider reports them
-	 * (OpenAI `output_tokens_details.reasoning_tokens`, Google `thoughtsTokenCount`).
-	 * Always a subset of `output` — non-reasoning output is `output - reasoningTokens`.
-	 *
-	 * Providers that don't expose this leave it undefined rather than guessing;
-	 * `undefined` means unknown, NOT zero.
-	 */
-	reasoningTokens?: number;
-	/**
-	 * Cache-write TTL breakdown (Anthropic only). When set, the components sum to
-	 * `cacheWrite`. Absent providers do not populate this.
-	 */
-	cttl?: {
-		ephemeral5m?: number;
-		ephemeral1h?: number;
-	};
-	/**
-	 * Server-side tool invocations made during this turn (Anthropic web_search /
-	 * web_fetch, OpenAI built-in tools when reported). Counts requests, not tokens.
-	 */
-	server?: {
-		webSearch?: number;
-		webFetch?: number;
-	};
 	cost: {
-		input: number;
-		output: number;
-		cacheRead: number;
-		cacheWrite: number;
-		total: number;
+		input?: number;
+		output?: number;
+		cacheRead?: number;
+		cacheWrite?: number;
+		total?: number;
+		estimate?: {
+			input: number;
+			output: number;
+			cacheRead: number;
+			cacheWrite: number;
+			total: number;
+		};
+		isByok?: boolean;
 	};
 }
 
@@ -579,8 +327,6 @@ export interface UserMessage {
 	content: string | (TextContent | ImageContent)[];
 	/** True if the message was injected by the system (e.g., auto-continue). */
 	synthetic?: boolean;
-	/** True when injected mid-turn as a steer; consumed by the agent's pre-LLM transform to wrap it for emphasis. Never rendered. */
-	steering?: boolean;
 	/** Who initiated this message for billing/attribution semantics. */
 	attribution?: MessageAttribution;
 	/** Provider-specific opaque payload used to reconstruct transport-native history. */
@@ -608,16 +354,6 @@ export interface AssistantMessage {
 	usage: Usage;
 	stopReason: StopReason;
 	errorMessage?: string;
-	/** HTTP status surfaced by the provider when the request failed. Populated by every provider's catch block alongside `errorMessage` so consumers (auth retry, telemetry, UI) can branch without regex-scraping the message. */
-	errorStatus?: number;
-	/**
-	 * Stable identifiers for request features the provider silently dropped
-	 * during this turn (e.g. `"priority"`). Set when a server-side rejection
-	 * triggered an in-provider fallback retry that succeeded without the
-	 * feature. Callers can use this to sync user-facing toggles back to the
-	 * server's actual state.
-	 */
-	disabledFeatures?: string[];
 	/** Provider-specific opaque payload used to reconstruct transport-native history. */
 	providerPayload?: ProviderPayload;
 	timestamp: number; // Unix timestamp in milliseconds
@@ -677,50 +413,16 @@ export interface CursorExecHandlers {
 	onToolResult?: CursorToolResultHandler;
 }
 
-/**
- * Plain JSON Schema document used by extension-authored tools (legacy TypeBox
- * emits this shape). Distinguished from Zod at runtime via {@link isZodSchema}.
- */
-export type TJsonSchema = Record<string, unknown>;
-
-/**
- * Schema type accepted by the {@link Tool} interface.
- *
- * Canonical authoring uses Zod. Extension compat may supply a JSON Schema
- * object (including TypeBox static schema objects).
- */
-export type TSchema = ZodType | TJsonSchema;
-
-/** Resolve parameter types for tool execution / handlers. */
-export type Static<S> = S extends ZodType ? z.infer<S> : S extends { static: infer T } ? T : unknown;
-
 export interface Tool<TParameters extends TSchema = TSchema> {
 	name: string;
 	description: string;
 	parameters: TParameters;
 	/** If true, tool is strictly typed and validated against the parameters schema before execution */
 	strict?: boolean;
-	/**
-	 * Optional grammar constraint for OpenAI custom-tool emission.
-	 * When set, providers that support grammar-constrained tools (currently only
-	 * `openai-responses` against models with the right capability flag) may emit
-	 * this tool as `{type: "custom", format: {type: "grammar", …}}` instead of a
-	 * JSON function tool. Other providers ignore the field.
-	 */
-	customFormat?: { syntax: "lark" | "regex"; definition: string };
-	/**
-	 * Optional wire-level name used when this tool is emitted as a custom tool
-	 * (e.g. OpenAI's `{type: "custom"}` shape). Models trained on specific tool
-	 * names — like GPT-5 on `apply_patch` — need to see that exact name on the
-	 * wire, but it may differ from the harness-internal `name`. The agent-loop
-	 * dispatcher matches both `name` and `customWireName` so returned tool
-	 * calls route correctly. Absent for regular JSON function tools.
-	 */
-	customWireName?: string;
 }
 
 export interface Context {
-	systemPrompt?: string[];
+	systemPrompt?: string;
 	messages: Message[];
 	tools?: Tool[];
 }
@@ -758,19 +460,6 @@ export interface OpenAICompat {
 	supportsStore?: boolean;
 	/** Whether the provider supports the `developer` role (vs `system`). Default: auto-detected from URL. */
 	supportsDeveloperRole?: boolean;
-	/**
-	 * Whether the provider's chat-completions endpoint accepts multiple
-	 * leading `system`/`developer` messages. When false, ordered system
-	 * prompts are coalesced into a single message joined by `\n\n` so
-	 * strict chat templates (e.g. Qwen-served via vLLM, MiniMax) accept
-	 * the request. Default: detected per provider/baseUrl. Canonical
-	 * OpenAI/Azure/OpenRouter/Cerebras/Together/Fireworks/Groq/DeepSeek/
-	 * Mistral/xAI/Z.ai/GitHub Copilot/Zenmux are treated as `true`;
-	 * unknown or strict-template hosts default to `false`. Setting this
-	 * to `true` preserves separate blocks, which is preferred for
-	 * KV-cache reuse when the trailing prompt changes between calls.
-	 */
-	supportsMultipleSystemMessages?: boolean;
 	/** Whether the provider supports `reasoning_effort`. Default: auto-detected from URL. */
 	supportsReasoningEffort?: boolean;
 	/** Optional mapping from pi-ai reasoning levels to provider/model-specific `reasoning_effort` values. */
@@ -787,79 +476,24 @@ export interface OpenAICompat {
 	requiresThinkingAsText?: boolean;
 	/** Whether tool call IDs must be normalized to Mistral format (exactly 9 alphanumeric chars). Default: auto-detected from URL. */
 	requiresMistralToolIds?: boolean;
-	/** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "openrouter" uses reasoning: { effort }, "zai" uses thinking: { type: "enabled" | "disabled" } (also used by Moonshot Kimi), "qwen" uses top-level enable_thinking, and "qwen-chat-template" uses chat_template_kwargs.enable_thinking. Default: "openai". */
+	/** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "openrouter" uses reasoning: { effort }, "zai" uses thinking: { type: "enabled" }, "qwen" uses top-level enable_thinking, and "qwen-chat-template" uses chat_template_kwargs.enable_thinking. Default: "openai". */
 	thinkingFormat?: "openai" | "openrouter" | "zai" | "qwen" | "qwen-chat-template";
-	/** Optional `thinking.keep` value for Z.ai/Moonshot-style thinking params. Set false to suppress auto-detected keep. Default: auto-detected. */
-	thinkingKeep?: "all" | false;
 	/** Which reasoning content field to emit on assistant messages. Default: auto-detected. */
 	reasoningContentField?: "reasoning_content" | "reasoning" | "reasoning_text";
 	/** Whether assistant tool-call messages must include reasoning content. Default: false. */
 	requiresReasoningContentForToolCalls?: boolean;
-	/** Whether the provider accepts a synthetic placeholder (e.g. ".") for missing reasoning_content on tool-call turns. Default: true. Set to false for providers like DeepSeek that validate the exact reasoning_content value. */
-	allowsSyntheticReasoningContentForToolCalls?: boolean;
 	/** Whether assistant tool-call messages must include non-empty content. Default: false. */
 	requiresAssistantContentForToolCalls?: boolean;
 	/** Whether the provider supports the `tool_choice` parameter. Default: true. */
 	supportsToolChoice?: boolean;
-	/**
-	 * Drop reasoning fields (`reasoning_effort`, OpenRouter `reasoning`) for
-	 * the request when `tool_choice` forces a tool call. Mirrors the Anthropic
-	 * `disableThinkingIfToolChoiceForced` rule for backends like Kimi that
-	 * 400 with `tool_choice 'specified' is incompatible with thinking
-	 * enabled` whenever both are present. Default: auto-detected (Kimi).
-	 */
-	disableReasoningOnForcedToolChoice?: boolean;
-	/**
-	 * Drop reasoning fields (`reasoning_effort`, OpenRouter `reasoning`) for
-	 * any request that sends `tool_choice`. Use for providers/models that accept
-	 * tools and `tool_choice`, but reject `tool_choice` while thinking is enabled.
-	 * Default: auto-detected (DeepSeek reasoning models).
-	 */
-	disableReasoningOnToolChoice?: boolean;
 	/** OpenRouter-specific routing preferences. Only used when baseUrl points to OpenRouter. */
 	openRouterRouting?: OpenRouterRouting;
 	/** Vercel AI Gateway routing preferences. Only used when baseUrl points to Vercel AI Gateway. */
 	vercelGatewayRouting?: VercelGatewayRouting;
 	/** Extra fields to include in request body (e.g. gateway routing hints for OpenClaw-style proxies). */
 	extraBody?: Record<string, unknown>;
-	/** Whether chat-completions payloads should include provider-specific prompt-cache markers. */
-	cacheControlFormat?: "anthropic" | undefined;
 	/** Whether the provider supports the `strict` field in tool definitions. Default: auto-detected per provider/baseUrl (conservative for unknown providers). */
 	supportsStrictMode?: boolean;
-	/** Whether tool schemas must be sent either all strict or all non-strict. Undefined keeps the existing per-tool mixed behavior. */
-	toolStrictMode?: "all_strict" | "none";
-}
-
-/**
- * Compatibility settings for anthropic-messages API.
- * Use this to disable features that strict-by-default Anthropic accepts but
- * that proxy gateways (Vertex AI, AWS Bedrock-style fronts, etc.) reject.
- */
-export interface AnthropicCompat {
-	/**
-	 * Drop the top-level `strict: true` field on tool definitions. Vertex AI's
-	 * Anthropic-compatible endpoint rejects unknown tool fields with
-	 * `tools.<n>.custom.strict: Extra inputs are not permitted`.
-	 */
-	disableStrictTools?: boolean;
-	/**
-	 * Map adaptive thinking (`thinking: { type: "adaptive" }`) to
-	 * `{ type: "enabled", budget_tokens }`. Vertex AI rejects the `adaptive`
-	 * tag with `Input tag 'adaptive' ... does not match any of the expected
-	 * tags: 'disabled', 'enabled'`.
-	 */
-	disableAdaptiveThinking?: boolean;
-	/** Whether tools may include Anthropic's per-tool eager_input_streaming flag. Default: true. */
-	supportsEagerToolInputStreaming?: boolean;
-	/** Whether long prompt-cache retention (`ttl: "1h"`) is supported. Default: true for canonical Anthropic API. */
-	supportsLongCacheRetention?: boolean;
-	/**
-	 * Whether mid-conversation `role: "system"` messages are accepted in the
-	 * `messages` array (Claude Opus 4.8+ on the first-party Claude API and
-	 * Claude Platform on AWS). When unset, auto-detected from the model id and
-	 * base URL. Not available on Bedrock, Vertex AI, or Microsoft Foundry.
-	 */
-	supportsMidConversationSystem?: boolean;
 }
 
 /**
@@ -905,34 +539,7 @@ export interface Model<TApi extends Api = any> {
 	premiumMultiplier?: number;
 	contextWindow: number;
 	maxTokens: number;
-	/**
-	 * When `true`, providers MUST omit `max_output_tokens` (Responses) /
-	 * `max_tokens` / `max_completion_tokens` (Completions) from the outbound
-	 * request and let the upstream API decide the per-response cap. `maxTokens`
-	 * is still used locally for budgeting (compaction, context promotion); only
-	 * the wire field is suppressed.
-	 *
-	 * Use this for proxies (notably Ollama) that forward to a backend whose true
-	 * output limit OMP cannot discover — sending the wrong value triggers 400s
-	 * from the upstream provider.
-	 */
-	omitMaxOutputTokens?: boolean;
 	headers?: Record<string, string>;
-	/**
-	 * Streaming transport override. When `"pi-native"`, `streamSimple` routes
-	 * the request to the model's `baseUrl` via the auth-gateway's
-	 * `POST /v1/pi/stream` endpoint instead of dispatching the per-API
-	 * provider client. The `baseUrl` must point at an `omp auth-gateway`
-	 * (or compatible) host; `headers.Authorization` (or `apiKey` resolved by
-	 * the registry) carries the gateway bearer.
-	 *
-	 * Used by containerized omp installs (e.g. robomp slots) to route every
-	 * LLM call through a sidecar gateway that holds the real provider
-	 * credentials. The model's other metadata (pricing, context window,
-	 * thinking config, …) still resolves locally; only the streaming
-	 * dispatch is redirected.
-	 */
-	transport?: "pi-native";
 	/** Hint that websocket transport should be preferred when supported by the provider implementation. */
 	preferWebsockets?: boolean;
 	/** Preferred model to switch to when context promotion is triggered (model id or provider/id). */
@@ -941,25 +548,6 @@ export interface Model<TApi extends Api = any> {
 	priority?: number;
 	/** Canonical thinking capability metadata for this model. */
 	thinking?: ThinkingConfig;
-	/** Compatibility overrides per API. If not set, auto-detected from baseUrl. */
-	compat?: TApi extends "openai-completions" | "openai-responses"
-		? OpenAICompat
-		: TApi extends "anthropic-messages"
-			? AnthropicCompat
-			: never;
-	/**
-	 * Which shape to use when exposing the Codex `apply_patch` tool to this model.
-	 * Generated catalog policy sets `"freeform"` for first-party GPT-5 Responses
-	 * models that support OpenAI custom tools with a Lark grammar. The freeform
-	 * variant sends a raw patch string with no JSON envelope.
-	 * - `"function"` or undefined: JSON function-tool with `{input: string}` (spec §1.2).
-	 */
-	applyPatchToolType?: "freeform" | "function";
-	/**
-	 * Force OAuth-style request shaping for providers whose API key prefix doesn't
-	 * match an OAuth token (e.g. routing Anthropic traffic through a proxy that
-	 * expects Claude Code framing). When true, the streaming layer sets
-	 * `options.isOAuth = true` for the underlying provider call.
-	 */
-	isOAuth?: boolean;
+	/** Compatibility overrides for openai-completions API. If not set, auto-detected from baseUrl. */
+	compat?: TApi extends "openai-completions" ? OpenAICompat : never;
 }

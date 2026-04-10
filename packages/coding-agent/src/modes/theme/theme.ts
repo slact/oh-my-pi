@@ -106,6 +106,7 @@ export type SymbolKey =
 	| "icon.pi"
 	| "icon.agents"
 	| "icon.cache"
+	| "icon.key"
 	| "icon.input"
 	| "icon.output"
 	| "icon.host"
@@ -275,6 +276,7 @@ const UNICODE_SYMBOLS: SymbolMap = {
 	"icon.pi": "π",
 	"icon.agents": "👥",
 	"icon.cache": "💾",
+	"icon.key": "🗝️",
 	"icon.input": "⤵",
 	"icon.output": "⤴",
 	"icon.host": "🖥",
@@ -511,6 +513,7 @@ const NERD_SYMBOLS: SymbolMap = {
 	"icon.agents": "\uf0c0",
 	// pick:  | alt:  
 	"icon.cache": "\uf1c0",
+	"icon.key": "\uf084",
 	// pick:  | alt:  →
 	"icon.input": "\uf090",
 	// pick:  | alt:  →
@@ -712,6 +715,7 @@ const ASCII_SYMBOLS: SymbolMap = {
 	"icon.pi": "pi",
 	"icon.agents": "AG",
 	"icon.cache": "cache",
+	"icon.key": "[key]",
 	"icon.input": "in:",
 	"icon.output": "out:",
 	"icon.host": "host",
@@ -1568,6 +1572,7 @@ export class Theme {
 			pi: this.#symbols["icon.pi"],
 			agents: this.#symbols["icon.agents"],
 			cache: this.#symbols["icon.cache"],
+			key: this.#symbols["icon.key"],
 			input: this.#symbols["icon.input"],
 			output: this.#symbols["icon.output"],
 			host: this.#symbols["icon.host"],

@@ -341,11 +341,16 @@ export function insertMessageStats(stats: MessageStats[]): number {
 				s.usage.cacheWrite,
 				s.usage.totalTokens,
 				s.usage.premiumRequests ?? 0,
-				cost.input,
-				cost.output,
-				cost.cacheRead,
-				cost.cacheWrite,
-				cost.total,
+				
+				cost.input ?? 0,
+				
+				cost.output ?? 0,
+				
+				cost.cacheRead ?? 0,
+				
+				cost.cacheWrite ?? 0,
+				
+				cost.total ?? 0,
 			);
 			if (result.changes > 0) inserted++;
 		}
