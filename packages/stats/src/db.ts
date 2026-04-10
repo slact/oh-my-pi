@@ -137,11 +137,11 @@ export function insertMessageStats(stats: MessageStats[]): number {
 				s.usage.cacheWrite,
 				s.usage.totalTokens,
 				s.usage.premiumRequests ?? 0,
-				s.usage.cost.input,
-				s.usage.cost.output,
-				s.usage.cost.cacheRead,
-				s.usage.cost.cacheWrite,
-				s.usage.cost.total,
+				s.usage.cost.input ?? 0,
+				s.usage.cost.output ?? 0,
+				s.usage.cost.cacheRead ?? 0,
+				s.usage.cost.cacheWrite ?? 0,
+				s.usage.cost.total ?? 0,
 			);
 			if (result.changes > 0) inserted++;
 		}

@@ -197,8 +197,33 @@ export class AssistantMessageComponent extends Container {
 			parts.push(`${theme.icon.input} ${formatNumber(totalInput)}`);
 			parts.push(`${theme.icon.output} ${formatNumber(usage.output)}`);
 			if (usage.cacheRead > 0) {
-				parts.push(`cache: ${formatNumber(usage.cacheRead)}`);
+				parts.push(`${theme.icon.cache} ${formatNumber(usage.cacheRead)}`);
 			}
+
+			// Cost display
+			const cost = usage.cost;
+			if (cost.total !== undefined || cost.estimate || cost.isByok) {
+				const total = cost.total ?? cost.estimate?.total ?? 0;
+				const costStr = `$${total.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 4 })}`;
+				let costDisplay = costStr;
+
+				// Add BYOK indicator if present
+				if (cost.isByok) {
+					costDisplay += ` ${theme.icon.key}`;
+				}
+
+				// Add estimate if different from actual
+				if (cost.estimate && cost.total !== undefined && Math.abs(cost.total - cost.estimate.total) > 0.00001) {
+					const estimateStr = cost.estimate.total.toLocaleString("en-US", {
+						minimumFractionDigits: 0,
+						maximumFractionDigits: 4,
+					});
+					costDisplay += ` (~$${estimateStr})`;
+				}
+
+				parts.push(costDisplay);
+			}
+
 			this.#contentContainer.addChild(new Spacer(1));
 			this.#contentContainer.addChild(new Text(theme.fg("dim", parts.join("  ")), 1, 0));
 		}

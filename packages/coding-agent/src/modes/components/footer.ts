@@ -121,7 +121,7 @@ export class FooterComponent implements Component {
 				totalOutput += entry.message.usage.output;
 				totalCacheRead += entry.message.usage.cacheRead;
 				totalCacheWrite += entry.message.usage.cacheWrite;
-				totalCost += entry.message.usage.cost.total;
+				totalCost += entry.message.usage.cost.total ?? 0;
 				totalPremiumRequests += entry.message.usage.premiumRequests ?? 0;
 			}
 		}

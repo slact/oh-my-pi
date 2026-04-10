@@ -34,32 +34,30 @@ export function getBundledModels(provider: GeneratedProvider): Model<Api>[] {
 	const models = modelRegistry.get(provider);
 	return models ? (Array.from(models.values()) as Model<Api>[]) : [];
 }
-
 export function calculateCost<TApi extends Api>(model: Model<TApi>, usage: Usage): Usage["cost"] {
-	// If OpenRouter actual cost is present, use it as the total
-	if (usage.actualCost !== undefined) {
-		usage.cost.total = usage.actualCost;
-		// Populate breakdown from costDetails if available
-		const d = usage.costDetails;
-		if (d) {
-			if (d.upstreamInferenceInputCost !== undefined) usage.cost.input = d.upstreamInferenceInputCost;
-			if (d.upstreamInferenceOutputCost !== undefined) usage.cost.output = d.upstreamInferenceOutputCost;
-			// upstreamInferenceCost is not directly mapped; may represent combined input+output
-		}
-		// Fill any remaining zero breakdown fields with estimated values based on token counts
-		if (usage.cost.input === 0) usage.cost.input = (model.cost.input / 1_000_000) * usage.input;
-		if (usage.cost.output === 0) usage.cost.output = (model.cost.output / 1_000_000) * usage.output;
-		if (usage.cost.cacheRead === 0) usage.cost.cacheRead = (model.cost.cacheRead / 1_000_000) * usage.cacheRead;
-		if (usage.cost.cacheWrite === 0) usage.cost.cacheWrite = (model.cost.cacheWrite / 1_000_000) * usage.cacheWrite;
-		return usage.cost;
-	}
+	// Always compute OMP's token-based estimate
+	const input = (model.cost.input / 1_000_000) * usage.input;
+	const output = (model.cost.output / 1_000_000) * usage.output;
+	const cacheRead = (model.cost.cacheRead / 1_000_000) * usage.cacheRead;
+	const cacheWrite = (model.cost.cacheWrite / 1_000_000) * usage.cacheWrite;
+	const estimate: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number } = {
+		input,
+		output,
+		cacheRead,
+		cacheWrite,
+		total: input + output + cacheRead + cacheWrite,
+	};
 
-	// No actual cost: estimate from token counts and model pricing
-	usage.cost.input = (model.cost.input / 1_000_000) * usage.input;
-	usage.cost.output = (model.cost.output / 1_000_000) * usage.output;
-	usage.cost.cacheRead = (model.cost.cacheRead / 1_000_000) * usage.cacheRead;
-	usage.cost.cacheWrite = (model.cost.cacheWrite / 1_000_000) * usage.cacheWrite;
-	usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
+	// Store estimate so callers can compare actual vs estimate
+	usage.cost.estimate = estimate;
+
+	// Fill in undefined fields with estimate values (preserve actual values from provider)
+	if (usage.cost.input === undefined) usage.cost.input = estimate.input;
+	if (usage.cost.output === undefined) usage.cost.output = estimate.output;
+	if (usage.cost.cacheRead === undefined) usage.cost.cacheRead = estimate.cacheRead;
+	if (usage.cost.cacheWrite === undefined) usage.cost.cacheWrite = estimate.cacheWrite;
+	if (usage.cost.total === undefined) usage.cost.total = estimate.total;
+
 	return usage.cost;
 }
 

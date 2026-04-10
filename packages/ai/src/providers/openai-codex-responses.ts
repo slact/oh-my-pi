@@ -1043,24 +1043,6 @@ function handleResponseCompleted(
 			cacheWrite: 0,
 			totalTokens: response.usage.total_tokens || 0,
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-			actualCost: (response.usage as any).cost,
-			costDetails: (() => {
-				const d = (response.usage as any).cost_details;
-				if (!d) return undefined;
-				const v = {
-					upstreamInferenceInputCost: d.upstream_inference_input_cost,
-					upstreamInferenceOutputCost: d.upstream_inference_output_cost,
-					upstreamInferenceCost: d.upstream_inference_cost,
-				};
-				if (
-					v.upstreamInferenceInputCost === undefined &&
-					v.upstreamInferenceOutputCost === undefined &&
-					v.upstreamInferenceCost === undefined
-				)
-					return undefined;
-				return v;
-			})(),
-			isByok: typeof (response.usage as any).is_byok === "boolean" ? (response.usage as any).is_byok : undefined,
 		};
 	}
 	if (typeof response?.id === "string" && response.id.length > 0) {

@@ -294,19 +294,20 @@ export interface Usage {
 	cacheWrite: number;
 	totalTokens: number;
 	premiumRequests?: number;
-	actualCost?: number;
-	costDetails?: {
-		upstreamInferenceInputCost?: number;
-		upstreamInferenceOutputCost?: number;
-		upstreamInferenceCost?: number;
-	};
-	isByok?: boolean;
 	cost: {
-		input: number;
-		output: number;
-		cacheRead: number;
-		cacheWrite: number;
-		total: number;
+		input?: number;
+		output?: number;
+		cacheRead?: number;
+		cacheWrite?: number;
+		total?: number;
+		estimate?: {
+			input: number;
+			output: number;
+			cacheRead: number;
+			cacheWrite: number;
+			total: number;
+		};
+		isByok?: boolean;
 	};
 }
 
