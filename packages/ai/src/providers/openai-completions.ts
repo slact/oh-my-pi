@@ -736,6 +736,7 @@ function parseChunkUsage(
 			cacheWrite: undefined,
 			total: getOptionalNumberProperty(rawUsage, "cost"),
 			isByok: typeof (rawUsage as any).is_byok === "boolean" ? (rawUsage as any).is_byok : undefined,
+			hadActualCost: typeof (rawUsage as any).cost === "number" || typeof (rawUsage as any).is_byok === "boolean",
 		},
 	};
 	calculateCost(model, usage);

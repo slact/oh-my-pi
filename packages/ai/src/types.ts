@@ -308,6 +308,7 @@ export interface Usage {
 			total: number;
 		};
 		isByok?: boolean;
+		hadActualCost?: boolean; // True if provider reported actual cost (vs estimate-only)
 	};
 }
 

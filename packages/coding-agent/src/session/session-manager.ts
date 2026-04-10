@@ -1536,6 +1536,7 @@ export interface UsageStatistics {
 	cacheWrite: number;
 	premiumRequests: number;
 	cost: number;
+	costByok: number;
 }
 
 function getTaskToolUsage(details: unknown): Usage | undefined {
@@ -1940,6 +1941,7 @@ export class SessionManager {
 		cacheWrite: 0,
 		premiumRequests: 0,
 		cost: 0,
+		costByok: 0,
 	} satisfies UsageStatistics;
 	/** Per-turn output-token budget set by a `+Nk` directive (total null when none this turn). */
 	#turnBudget: { total: number | null; hard: boolean } = { total: null, hard: false };
@@ -2264,7 +2266,15 @@ export class SessionManager {
 		this.#flushed = false;
 		this.#needsFullRewriteOnNextPersist = false;
 		this.#ensuredOnDisk = false;
-		this.#usageStatistics = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, premiumRequests: 0, cost: 0 };
+		this.#usageStatistics = {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			premiumRequests: 0,
+			cost: 0,
+			costByok: 0,
+		};
 		this.#inMemoryArtifacts = null;
 		this.#inMemoryArtifactCounter = 0;
 
@@ -2280,7 +2290,15 @@ export class SessionManager {
 		this.#byId.clear();
 		this.#labelsById.clear();
 		this.#leafId = null;
-		this.#usageStatistics = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, premiumRequests: 0, cost: 0 };
+		this.#usageStatistics = {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			premiumRequests: 0,
+			cost: 0,
+			costByok: 0,
+		};
 		for (const entry of this.#fileEntries) {
 			if (entry.type === "session") continue;
 			this.#byId.set(entry.id, entry);
@@ -2300,6 +2318,7 @@ export class SessionManager {
 				this.#usageStatistics.cacheWrite += usage.cacheWrite;
 				this.#usageStatistics.premiumRequests += usage.premiumRequests ?? 0;
 				this.#usageStatistics.cost += usage.cost.total ?? 0;
+				if (usage.cost.isByok) this.#usageStatistics.costByok += usage.cost.estimate?.total ?? 0;
 			}
 
 			if (entry.type === "message" && entry.message.role === "toolResult" && entry.message.toolName === "task") {
@@ -2311,6 +2330,7 @@ export class SessionManager {
 					this.#usageStatistics.cacheWrite += usage.cacheWrite;
 					this.#usageStatistics.premiumRequests += usage.premiumRequests ?? 0;
 					this.#usageStatistics.cost += usage.cost.total ?? 0;
+					if (usage.cost.isByok) this.#usageStatistics.costByok += usage.cost.estimate?.total ?? 0;
 				}
 			}
 		}
@@ -2814,6 +2834,7 @@ export class SessionManager {
 			this.#usageStatistics.cacheWrite += usage.cacheWrite;
 			this.#usageStatistics.premiumRequests += usage.premiumRequests ?? 0;
 			this.#usageStatistics.cost += usage.cost.total ?? 0;
+			if (usage.cost.isByok) this.#usageStatistics.costByok += usage.cost.estimate?.total ?? 0;
 		}
 
 		if (entry.type === "message" && entry.message.role === "toolResult" && entry.message.toolName === "task") {
@@ -2825,6 +2846,7 @@ export class SessionManager {
 				this.#usageStatistics.cacheWrite += usage.cacheWrite;
 				this.#usageStatistics.premiumRequests += usage.premiumRequests ?? 0;
 				this.#usageStatistics.cost += usage.cost.total ?? 0;
+				if (usage.cost.isByok) this.#usageStatistics.costByok += usage.cost.estimate?.total ?? 0;
 			}
 		}
 	}

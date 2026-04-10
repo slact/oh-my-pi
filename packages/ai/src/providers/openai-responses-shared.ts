@@ -422,6 +422,9 @@ export async function processResponsesStream<TApi extends Api>(
 						total: (response.usage as any).cost as number | undefined,
 						isByok:
 							typeof (response.usage as any).is_byok === "boolean" ? (response.usage as any).is_byok : undefined,
+						hadActualCost:
+							typeof (response.usage as any).cost === "number" ||
+							typeof (response.usage as any).is_byok === "boolean",
 					},
 				};
 			}
