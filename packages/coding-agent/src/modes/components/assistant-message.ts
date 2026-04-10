@@ -212,13 +212,13 @@ export class AssistantMessageComponent extends Container {
 					costDisplay += ` ${theme.icon.key}`;
 				}
 
-				// Add estimate if different from actual
-				if (cost.estimate && cost.total !== undefined && Math.abs(cost.total - cost.estimate.total) > 0.00001) {
+				// Add estimate if we have actual cost AND it displays differently
+				if (cost.hadActualCost && cost.estimate) {
 					const estimateStr = cost.estimate.total.toLocaleString("en-US", {
 						minimumFractionDigits: 0,
 						maximumFractionDigits: 4,
 					});
-					costDisplay += ` (~$${estimateStr})`;
+					if (estimateStr !== costStr.slice(1)) costDisplay += ` (~$${estimateStr})`;
 				}
 
 				parts.push(costDisplay);
