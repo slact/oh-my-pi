@@ -96,11 +96,11 @@ function addUsageTotals(target: Usage, usage: Partial<Usage>): void {
 	target.cacheRead += cacheRead;
 	target.cacheWrite += cacheWrite;
 	target.totalTokens += totalTokens;
-	target.cost.input += cost.input;
-	target.cost.output += cost.output;
-	target.cost.cacheRead += cost.cacheRead;
-	target.cost.cacheWrite += cost.cacheWrite;
-	target.cost.total += cost.total;
+	target.cost.input = (target.cost.input ?? 0) + (cost.input ?? 0);
+	target.cost.output = (target.cost.output ?? 0) + (cost.output ?? 0);
+	target.cost.cacheRead = (target.cost.cacheRead ?? 0) + (cost.cacheRead ?? 0);
+	target.cost.cacheWrite = (target.cost.cacheWrite ?? 0) + (cost.cacheWrite ?? 0);
+	target.cost.total = (target.cost.total ?? 0) + (cost.total ?? 0);
 }
 
 // Re-export types and utilities

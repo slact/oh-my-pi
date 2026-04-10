@@ -1717,7 +1717,7 @@ export class SessionManager {
 				this.#usageStatistics.cacheRead += usage.cacheRead;
 				this.#usageStatistics.cacheWrite += usage.cacheWrite;
 				this.#usageStatistics.premiumRequests += usage.premiumRequests ?? 0;
-				this.#usageStatistics.cost += usage.cost.total;
+				this.#usageStatistics.cost += usage.cost.total ?? 0;
 			}
 
 			if (entry.type === "message" && entry.message.role === "toolResult" && entry.message.toolName === "task") {
@@ -1728,7 +1728,7 @@ export class SessionManager {
 					this.#usageStatistics.cacheRead += usage.cacheRead;
 					this.#usageStatistics.cacheWrite += usage.cacheWrite;
 					this.#usageStatistics.premiumRequests += usage.premiumRequests ?? 0;
-					this.#usageStatistics.cost += usage.cost.total;
+					this.#usageStatistics.cost += usage.cost.total ?? 0;
 				}
 			}
 		}
@@ -2015,7 +2015,7 @@ export class SessionManager {
 			this.#usageStatistics.cacheRead += usage.cacheRead;
 			this.#usageStatistics.cacheWrite += usage.cacheWrite;
 			this.#usageStatistics.premiumRequests += usage.premiumRequests ?? 0;
-			this.#usageStatistics.cost += usage.cost.total;
+			this.#usageStatistics.cost += usage.cost.total ?? 0;
 		}
 
 		if (entry.type === "message" && entry.message.role === "toolResult" && entry.message.toolName === "task") {
@@ -2026,7 +2026,7 @@ export class SessionManager {
 				this.#usageStatistics.cacheRead += usage.cacheRead;
 				this.#usageStatistics.cacheWrite += usage.cacheWrite;
 				this.#usageStatistics.premiumRequests += usage.premiumRequests ?? 0;
-				this.#usageStatistics.cost += usage.cost.total;
+				this.#usageStatistics.cost += usage.cost.total ?? 0;
 			}
 		}
 	}

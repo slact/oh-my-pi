@@ -728,8 +728,15 @@ function parseChunkUsage(
 		cacheRead: cachedTokens,
 		cacheWrite: 0,
 		totalTokens: input + outputTokens + cachedTokens,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 		...(copilotPremiumRequests !== undefined ? { premiumRequests: copilotPremiumRequests } : {}),
+		cost: {
+			input: getOptionalNumberProperty(rawUsage, "upstream_inference_input_cost"),
+			output: getOptionalNumberProperty(rawUsage, "upstream_inference_output_cost"),
+			cacheRead: undefined,
+			cacheWrite: undefined,
+			total: getOptionalNumberProperty(rawUsage, "cost"),
+			isByok: typeof (rawUsage as any).is_byok === "boolean" ? (rawUsage as any).is_byok : undefined,
+		},
 	};
 	calculateCost(model, usage);
 	return usage;

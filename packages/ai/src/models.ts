@@ -34,15 +34,33 @@ export function getBundledModels(provider: GeneratedProvider): Model<Api>[] {
 	const models = modelRegistry.get(provider);
 	return models ? (Array.from(models.values()) as Model<Api>[]) : [];
 }
-
 export function calculateCost<TApi extends Api>(model: Model<TApi>, usage: Usage): Usage["cost"] {
-	usage.cost.input = (model.cost.input / 1000000) * usage.input;
-	usage.cost.output = (model.cost.output / 1000000) * usage.output;
-	usage.cost.cacheRead = (model.cost.cacheRead / 1000000) * usage.cacheRead;
-	usage.cost.cacheWrite = (model.cost.cacheWrite / 1000000) * usage.cacheWrite;
-	usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
+	// Always compute OMP's token-based estimate
+	const input = (model.cost.input / 1_000_000) * usage.input;
+	const output = (model.cost.output / 1_000_000) * usage.output;
+	const cacheRead = (model.cost.cacheRead / 1_000_000) * usage.cacheRead;
+	const cacheWrite = (model.cost.cacheWrite / 1_000_000) * usage.cacheWrite;
+	const estimate: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number } = {
+		input,
+		output,
+		cacheRead,
+		cacheWrite,
+		total: input + output + cacheRead + cacheWrite,
+	};
+
+	// Store estimate so callers can compare actual vs estimate
+	usage.cost.estimate = estimate;
+
+	// Fill in undefined fields with estimate values (preserve actual values from provider)
+	if (usage.cost.input === undefined) usage.cost.input = estimate.input;
+	if (usage.cost.output === undefined) usage.cost.output = estimate.output;
+	if (usage.cost.cacheRead === undefined) usage.cost.cacheRead = estimate.cacheRead;
+	if (usage.cost.cacheWrite === undefined) usage.cost.cacheWrite = estimate.cacheWrite;
+	if (usage.cost.total === undefined) usage.cost.total = estimate.total;
+
 	return usage.cost;
 }
+
 /**
  * Check if two models are equal by comparing both their id and provider.
  * Returns false if either model is null or undefined.
