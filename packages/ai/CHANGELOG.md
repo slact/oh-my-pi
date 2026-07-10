@@ -1247,6 +1247,10 @@
 
 - Restored the `pollOAuthDeviceCodeFlow` export from `@oh-my-pi/pi-ai/oauth` so legacy provider extensions can reuse the host OAuth device-code poller. ([#3508](https://github.com/can1357/oh-my-pi/issues/3508))
 
+### Fixed
+
+- Fixed OpenAI-compatible providers dropping provider-reported per-request cost totals when usage included BYOK/upstream billing fields. The usage parsers now preserve `usage.cost` when the backend reports real dollars instead of leaving per-turn cost rows and downstream billing stats stuck at `$0.0000`.
+
 ## [16.1.20] - 2026-06-25
 
 ### Fixed

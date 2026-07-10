@@ -225,6 +225,7 @@ export interface ToolExecutionUi {
 	requestComponentRender(component: Component): void;
 	resetDisplay(): void;
 	imageBudget?: TUI["imageBudget"];
+	getActivityIntervalMs?(): number;
 }
 
 export interface ToolExecutionOptions {
@@ -265,6 +266,7 @@ export interface ToolExecutionHandle extends Component {
  * compose pipeline still ran end-to-end per frame (issue #4353). Matching the
  * render tick to the glyph tick halves the paints during tool execution with no
  * visible change. */
+const DEFAULT_ACTIVITY_INTERVAL_MS = 1000 / 30;
 export const SPINNER_RENDER_INTERVAL_MS = 80;
 /** Advance the spinner glyph at its classic ~12.5fps step (mirrors `Loader`). */
 export const SPINNER_GLYPH_ADVANCE_MS = 80;
@@ -400,6 +402,7 @@ export class ToolExecutionComponent extends Container {
 	#convertedImages: Map<number, { data: string; mimeType: string }> = new Map();
 	// Spinner animation for partial task results
 	#spinnerFrame?: number;
+	#spinnerTimer?: NodeJS.Timeout;
 	#spinnerActive = false;
 	// Todo write completion strikethrough reveal animation
 	#todoStrikeInterval?: NodeJS.Timeout;
@@ -788,10 +791,16 @@ export class ToolExecutionComponent extends Container {
 			this.#spinnerFrame = frame;
 			this.#renderState.spinnerFrame = frame;
 			this.#spinnerActive = true;
-			registerSpinnerBlock(this);
+			if (this.#ui.getActivityIntervalMs && this.#ui.getActivityIntervalMs() !== SPINNER_RENDER_INTERVAL_MS) {
+				this.#scheduleSpinnerTick();
+			} else {
+				registerSpinnerBlock(this);
+			}
 		} else if (!needsSpinner && this.#spinnerActive) {
 			this.#spinnerActive = false;
 			unregisterSpinnerBlock(this);
+			clearTimeout(this.#spinnerTimer);
+			this.#spinnerTimer = undefined;
 			// Clear the last drawn frame so a non-live renderCall (e.g. a write whose
 			// args just completed) stops showing a frozen spinner glyph. Skip when a
 			// todo strike owns the frame — it sets its own value right after this.
@@ -800,6 +809,21 @@ export class ToolExecutionComponent extends Container {
 				this.#renderState.spinnerFrame = undefined;
 			}
 		}
+	}
+	#scheduleSpinnerTick(): void {
+		if (this.#spinnerTimer || !this.#spinnerActive) return;
+		const intervalMs = this.#ui.getActivityIntervalMs?.() ?? DEFAULT_ACTIVITY_INTERVAL_MS;
+		this.#spinnerTimer = setTimeout(() => {
+			this.#spinnerTimer = undefined;
+			if (!this.#spinnerActive) return;
+			const now = performance.now();
+			const frameCount = theme.spinnerFrames.length;
+			this.#spinnerFrame = sharedSpinnerFrame(frameCount, now);
+			this.#renderState.spinnerFrame = this.#spinnerFrame;
+			this.#ui.requestComponentRender(this);
+			this.#scheduleSpinnerTick();
+		}, intervalMs);
+		this.#spinnerTimer.unref?.();
 	}
 
 	/**
@@ -924,9 +948,11 @@ export class ToolExecutionComponent extends Container {
 		if (this.#spinnerActive) {
 			this.#spinnerActive = false;
 			unregisterSpinnerBlock(this);
-			this.#spinnerFrame = undefined;
-			this.#renderState.spinnerFrame = undefined;
 		}
+		clearTimeout(this.#spinnerTimer);
+		this.#spinnerTimer = undefined;
+		this.#spinnerFrame = undefined;
+		this.#renderState.spinnerFrame = undefined;
 		this.#stopTodoStrikeAnimation();
 		this.#editDiffAbort?.abort();
 		this.#editDiffAbort = undefined;

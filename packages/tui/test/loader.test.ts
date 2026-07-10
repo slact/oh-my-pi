@@ -48,6 +48,27 @@ describe("Loader component", () => {
 		loader.stop();
 	});
 
+	it("uses the TUI activity cadence for animated message redraws", () => {
+		vi.useFakeTimers();
+		const term = new VirtualTerminal(20, 4);
+		const tui = new TUI(term, undefined, { activityFps: 10 });
+		const requestRender = spyOn(tui, "requestComponentRender");
+		const colorMessage = ((text: string) => text) as LoaderMessageColorFn & { animated: true };
+		colorMessage.animated = true;
+		const loader = new Loader(tui, text => text, colorMessage, "Checking", ["0", "1"]);
+
+		expect(requestRender).toHaveBeenCalledTimes(1);
+
+		vi.advanceTimersByTime(99);
+		expect(requestRender).toHaveBeenCalledTimes(1);
+
+		vi.advanceTimersByTime(1);
+		expect(requestRender).toHaveBeenCalledTimes(2);
+		expect(loader.render(20).join("\n")).toContain("1 Checking");
+
+		loader.stop();
+	});
+
 	it("falls back to component-scoped renders for lightweight TUI stubs", () => {
 		vi.useFakeTimers();
 		const ui = { requestComponentRender: vi.fn() };

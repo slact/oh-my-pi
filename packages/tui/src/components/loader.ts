@@ -2,7 +2,7 @@ import type { TUI } from "../tui";
 import { getPaddingX, sliceByColumn, visibleWidth } from "../utils";
 import { Text } from "./text";
 
-const RENDER_INTERVAL_MS = 1000 / 30;
+const DEFAULT_ACTIVITY_INTERVAL_MS = 1000 / 30;
 const SPINNER_ADVANCE_MS = 80;
 const RENDER_BACKPRESSURE_MULTIPLIER = 9;
 const MAX_BACKPRESSURE_FRAME_COST_MS = 200;
@@ -109,8 +109,11 @@ export class Loader extends Text {
 		this.#lastSpinnerTick = performance.now();
 		this.#syncText();
 		this.#requestPaint();
-		const intervalMs = this.messageColorFn.animated === true ? RENDER_INTERVAL_MS : SPINNER_ADVANCE_MS;
-		this.#scheduleTick(intervalMs, intervalMs);
+		const intervalMs =
+			this.messageColorFn.animated === true
+				? (this.#ui?.getActivityIntervalMs?.() ?? DEFAULT_ACTIVITY_INTERVAL_MS)
+				: SPINNER_ADVANCE_MS;
+		this.#scheduleTick(intervalMs);
 	}
 
 	stop() {
@@ -134,7 +137,7 @@ export class Loader extends Text {
 		this.#requestPaint();
 	}
 
-	#scheduleTick(intervalMs: number, delayMs: number): void {
+	#scheduleTick(delayMs: number): void {
 		const timer = setTimeout(() => {
 			if (this.#intervalId !== timer) return;
 			const startedAt = performance.now();
@@ -153,7 +156,11 @@ export class Loader extends Text {
 			const completedFrameCostMs = this.#ui?.lastFrameCostMs ?? 0;
 			const requestCostMs = performance.now() - startedAt;
 			if (this.#intervalId !== timer) return;
-			const cadenceDelayMs = Math.max(0, intervalMs - requestCostMs);
+			const nextIntervalMs =
+				this.messageColorFn.animated === true
+					? (this.#ui?.getActivityIntervalMs?.() ?? DEFAULT_ACTIVITY_INTERVAL_MS)
+					: SPINNER_ADVANCE_MS;
+			const cadenceDelayMs = Math.max(0, nextIntervalMs - requestCostMs);
 			// Idle for nine times the full frame cost to keep animation at or
 			// below 10% CPU even though requestComponentRender() only enqueues.
 			const boundedFrameCostMs = Math.min(
@@ -161,7 +168,7 @@ export class Loader extends Text {
 				Math.max(completedFrameCostMs, requestCostMs),
 			);
 			const backpressureDelayMs = boundedFrameCostMs * RENDER_BACKPRESSURE_MULTIPLIER;
-			this.#scheduleTick(intervalMs, Math.max(cadenceDelayMs, backpressureDelayMs));
+			this.#scheduleTick(Math.max(cadenceDelayMs, backpressureDelayMs));
 		}, delayMs);
 		this.#intervalId = timer;
 	}

@@ -103,6 +103,8 @@ export interface RenderScheduler {
 
 export interface TUIOptions {
 	renderScheduler?: RenderScheduler;
+	/** Cadence for spinner/shimmer-owned component redraws. Clamped to ≤30 fps. */
+	activityFps?: number;
 }
 /** Physical terminal dimensions supplied to a frame provider. */
 export interface ViewportSize {
@@ -166,6 +168,17 @@ const DEFAULT_RENDER_SCHEDULER: RenderScheduler = {
 		};
 	},
 };
+const DEFAULT_ACTIVITY_FPS = 30;
+const MAX_ACTIVITY_FPS = DEFAULT_ACTIVITY_FPS;
+const MIN_ACTIVITY_FPS = 1;
+const DEFAULT_ACTIVITY_INTERVAL_MS = 1000 / DEFAULT_ACTIVITY_FPS;
+
+function resolveActivityIntervalMs(activityFps?: number): number {
+	const raw = Number(activityFps);
+	if (!Number.isFinite(raw)) return DEFAULT_ACTIVITY_INTERVAL_MS;
+	const fps = Math.max(MIN_ACTIVITY_FPS, Math.min(MAX_ACTIVITY_FPS, Math.trunc(raw)));
+	return 1000 / fps;
+}
 
 /**
  * Component interface - all components must implement this
@@ -737,6 +750,7 @@ export class TUI extends Container {
 	 * fire the next frame immediately (see #4145).
 	 */
 	#lastFrameCostMs = 0;
+	#activityIntervalMs = DEFAULT_ACTIVITY_INTERVAL_MS;
 	static readonly #MIN_RENDER_INTERVAL_MS = 1000 / 30;
 	static readonly #INPUT_RENDER_GRACE_MS = TUI.#MIN_RENDER_INTERVAL_MS;
 	/**
@@ -833,6 +847,7 @@ export class TUI extends Container {
 		super();
 		this.terminal = terminal;
 		this.#renderScheduler = options?.renderScheduler ?? DEFAULT_RENDER_SCHEDULER;
+		this.#activityIntervalMs = resolveActivityIntervalMs(options?.activityFps);
 		this.#showHardwareCursor = showHardwareCursor === undefined ? this.#showHardwareCursor : showHardwareCursor;
 		this.#watchdog = new LoopWatchdog();
 	}
@@ -894,6 +909,14 @@ export class TUI extends Container {
 		for (const id of transmittedIds) {
 			this.terminal.write(encodeKittyDeleteImage(id));
 		}
+	}
+
+	getActivityIntervalMs(): number {
+		return this.#activityIntervalMs;
+	}
+
+	setActivityFps(activityFps: number | undefined): void {
+		this.#activityIntervalMs = resolveActivityIntervalMs(activityFps);
 	}
 
 	getShowHardwareCursor(): boolean {

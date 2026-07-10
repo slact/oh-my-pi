@@ -1841,9 +1841,18 @@ export function parseChunkUsage(
 		cacheWriteDeepSeek: typeof promptCacheMissTokens === "number" ? promptCacheMissTokens : undefined,
 		hasDeepSeekCacheHitAndMiss: typeof promptCacheHitTokens === "number" && typeof promptCacheMissTokens === "number",
 	});
+	const raw = rawUsage as Record<string, unknown>;
+	const hasActual = typeof raw.cost === "number" || typeof raw.is_byok === "boolean";
 	const usage: AssistantMessage["usage"] = {
 		...accounting,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		cost: {
+			input: (raw.upstream_inference_input_cost as number) ?? 0,
+			output: (raw.upstream_inference_output_cost as number) ?? 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			total: (raw.cost as number) ?? 0,
+			...(hasActual ? { isByok: (raw.is_byok as boolean) ?? false, hadActualCost: true } : {}),
+		},
 		...(premiumRequests !== undefined ? { premiumRequests } : {}),
 	};
 	calculateCost(model, usage);

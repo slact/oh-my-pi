@@ -56,6 +56,7 @@ function createCtx(activeMs: number): SegmentContext {
 			orchestrationCacheRead: 0,
 			premiumRequests: 0,
 			cost: 0,
+			costByok: 0,
 			tokensPerSecond: null,
 		},
 		contextPercent: 0,
@@ -109,6 +110,7 @@ function makeSession(
 				orchestrationCacheRead: 0,
 				premiumRequests: 0,
 				cost: 0,
+				costByok: 0,
 			}),
 		},
 	} as unknown as ConstructorParameters<typeof StatusLineComponent>[0];

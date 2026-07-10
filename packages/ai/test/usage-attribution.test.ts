@@ -254,6 +254,27 @@ describe("openai-completions parseChunkUsage", () => {
 		expect(usage.cacheWrite).toBe(5_000);
 		expect(usage.totalTokens).toBe(6_250);
 	});
+
+	it("preserves provider-reported actual cost for BYOK chat-completions usage", () => {
+		const usage = parseChunkUsage(
+			{
+				prompt_tokens: 100,
+				completion_tokens: 50,
+				cost: 0.46,
+				is_byok: true,
+				upstream_inference_input_cost: 0.12,
+				upstream_inference_output_cost: 0.34,
+			},
+			OPENAI_MODEL,
+			undefined,
+		);
+
+		expect(usage.cost.input).toBeCloseTo(0.12, 8);
+		expect(usage.cost.output).toBeCloseTo(0.34, 8);
+		expect(usage.cost.total).toBeCloseTo(0.46, 8);
+		expect(usage.cost.isByok).toBe(true);
+		expect(usage.cost.hadActualCost).toBe(true);
+	});
 });
 
 describe("shared OpenAI usage accounting", () => {
@@ -371,6 +392,41 @@ describe("openai-responses usage attribution", () => {
 		expect(output.usage.output).toBe(29);
 		expect(output.usage.orchestration).toEqual({ input: 5_629 });
 		expect(output.usage.totalTokens).toBe(185_882);
+	});
+
+	it("preserves provider-reported actual cost for BYOK responses usage", () => {
+		const output: AssistantMessage = {
+			role: "assistant",
+			content: [],
+			api: "openai-responses",
+			provider: "openai",
+			model: "gpt-5",
+			usage: blankUsage(),
+			stopReason: "stop",
+			timestamp: 0,
+		};
+
+		const rawUsage = {
+			input_tokens: 120,
+			output_tokens: 80,
+			total_tokens: 200,
+			cost: 0.58,
+			is_byok: true,
+			upstream_inference_input_cost: 0.2,
+			upstream_inference_output_cost: 0.38,
+		} as Parameters<typeof populateResponsesUsageFromResponse>[1] & {
+			cost: number;
+			is_byok: boolean;
+			upstream_inference_input_cost: number;
+			upstream_inference_output_cost: number;
+		};
+		populateResponsesUsageFromResponse(output, rawUsage);
+
+		expect(output.usage.cost.input).toBeCloseTo(0.2, 8);
+		expect(output.usage.cost.output).toBeCloseTo(0.38, 8);
+		expect(output.usage.cost.total).toBeCloseTo(0.58, 8);
+		expect(output.usage.cost.isByok).toBe(true);
+		expect(output.usage.cost.hadActualCost).toBe(true);
 	});
 });
 

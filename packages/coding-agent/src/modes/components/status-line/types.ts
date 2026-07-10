@@ -101,6 +101,7 @@ export interface SegmentContext {
 		orchestrationCacheRead: number;
 		premiumRequests: number;
 		cost: number;
+		costByok: number;
 		tokensPerSecond: number | null;
 	};
 	/** Context usage percent, or null when unknown (e.g. right after compaction). */

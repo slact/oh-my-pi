@@ -167,6 +167,7 @@ function emptyUsageStatistics(): UsageStatistics {
 		orchestrationCacheRead: 0,
 		premiumRequests: 0,
 		cost: 0,
+		costByok: 0,
 	};
 }
 
@@ -196,6 +197,7 @@ function addUsage(target: UsageStatistics, usage: Usage | undefined): void {
 	target.orchestrationCacheRead += usage.orchestration?.cacheRead ?? 0;
 	target.premiumRequests += usage.premiumRequests ?? 0;
 	target.cost += usage.cost.total;
+	if (usage.cost.isByok) target.costByok += usage.cost.estimate?.total ?? 0;
 }
 
 function isAssistantEntry(entry: SessionEntry): boolean {

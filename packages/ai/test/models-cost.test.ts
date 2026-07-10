@@ -234,4 +234,40 @@ describe("calculateCost", () => {
 		expect(usage.cost.cacheRead).toBeCloseTo(0.001, 12);
 		expect(usage.cost.cacheWrite).toBeCloseTo(0.0125, 12);
 	});
+
+	it("preserves reported actual cost totals while still storing an estimate", () => {
+		const model = {
+			...getBundledModel("openai", "gpt-4o-mini"),
+			cost: {
+				input: 1000,
+				output: 2000,
+				cacheRead: 500,
+				cacheWrite: 800,
+			},
+		};
+		const usage: Usage = {
+			input: 1000,
+			output: 500,
+			cacheRead: 200,
+			cacheWrite: 100,
+			totalTokens: 1800,
+			cost: {
+				input: 0.12,
+				output: 0.34,
+				cacheRead: 0.01,
+				cacheWrite: 0,
+				total: 0,
+				hadActualCost: true,
+				isByok: true,
+			},
+		};
+
+		calculateCost(model, usage);
+
+		expect(usage.cost.input).toBeCloseTo(0.12, 8);
+		expect(usage.cost.output).toBeCloseTo(0.34, 8);
+		expect(usage.cost.cacheRead).toBeCloseTo(0.01, 8);
+		expect(usage.cost.total).toBeCloseTo(0.47, 8);
+		expect(usage.cost.estimate?.total).toBeCloseTo(2.18, 8);
+	});
 });

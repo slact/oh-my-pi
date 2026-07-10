@@ -1681,6 +1681,7 @@ export class StatusLineComponent implements Component {
 			orchestrationCacheRead: 0,
 			premiumRequests: 0,
 			cost: 0,
+			costByok: 0,
 		};
 		const usageStats = {
 			...aggregateUsageStats,

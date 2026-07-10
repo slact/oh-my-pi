@@ -1264,6 +1264,25 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
+	"display.activityFps": {
+		type: "number",
+		default: 30,
+		ui: {
+			tab: "appearance",
+			group: "Display",
+			label: "Activity FPS",
+			description:
+				"Redraw cadence for working spinners and shimmered tool/activity blocks (higher = smoother, lower = less CPU)",
+			options: [
+				{ value: "5", label: "5 fps", description: "Very low CPU, visibly stepped animation" },
+				{ value: "10", label: "10 fps", description: "Conservative and usually smooth enough" },
+				{ value: "15", label: "15 fps", description: "Balanced" },
+				{ value: "20", label: "20 fps", description: "Smoother with moderate CPU use" },
+				{ value: "30", label: "30 fps", description: "Current default and maximum effective rate" },
+			],
+		},
+	},
+
 	"display.smoothStreaming": {
 		type: "boolean",
 		default: true,

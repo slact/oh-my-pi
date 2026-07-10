@@ -644,6 +644,10 @@
 - Fixed issues where stray, unmatched, or raw HTML tags would leak into the rendered output.
 - Fixed render scheduling to yield behind queued terminal input, preventing delayed Escape key delivery during heavy streaming paints.
 
+### Added
+
+- Added `TUIOptions.activityFps` plus `getActivityIntervalMs()` / `setActivityFps()` so host apps can tune spinner/shimmer-owned redraw cadence without changing the core render throttle.
+
 ## [16.1.20] - 2026-06-25
 
 ### Fixed

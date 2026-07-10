@@ -147,6 +147,12 @@ export interface Usage {
 		cacheRead: number;
 		cacheWrite: number;
 		total: number;
+		/** Token-count × model-pricing estimate, stored even when upstream reports real cost. */
+		estimate?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+		/** True when the provider is using BYOK pricing (not model-priced tokens). */
+		isByok?: boolean;
+		/** True when the provider reported actual cost (vs estimate-only). */
+		hadActualCost?: boolean;
 	};
 }
 

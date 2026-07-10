@@ -3737,9 +3737,18 @@ export function populateResponsesUsageFromResponse(
 	// premium-request accounting): the failed/cancelled paths throw right after
 	// this call with no later chance to re-apply.
 	const premiumRequests = output.usage.premiumRequests;
+	const raw = usage as Record<string, unknown> | null | undefined;
+	const hasActual = typeof raw?.cost === "number" || typeof raw?.is_byok === "boolean";
 	output.usage = {
 		...accounting,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		cost: {
+			input: (raw?.upstream_inference_input_cost as number) ?? 0,
+			output: (raw?.upstream_inference_output_cost as number) ?? 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			total: (raw?.cost as number) ?? 0,
+			...(hasActual ? { isByok: (raw?.is_byok as boolean) ?? false, hadActualCost: true } : {}),
+		},
 	};
 	if (premiumRequests !== undefined) {
 		output.usage.premiumRequests = premiumRequests;

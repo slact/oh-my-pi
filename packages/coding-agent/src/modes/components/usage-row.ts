@@ -68,6 +68,12 @@ export function formatUsageRow(
 		const tokPerSec = (usage.output / durationMs) * 1000;
 		parts.push(`${theme.icon.throughput} ${tokPerSec.toFixed(1)}/s`);
 	}
+	const cost = usage.cost;
+	if (cost.hadActualCost || cost.total !== 0 || cost.estimate) {
+		const displayCost = cost.hadActualCost ? cost.total : (cost.estimate?.total ?? cost.total);
+		const label = cost.isByok ? `${theme.icon.key}$${displayCost.toFixed(4)}` : `$${displayCost.toFixed(4)}`;
+		parts.push(label);
+	}
 	return parts.join("  ");
 }
 

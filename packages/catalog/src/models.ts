@@ -64,11 +64,27 @@ export function calculateUsageCost(cost: ModelCost, usage: Usage): Usage["cost"]
 	const promptInputTokens =
 		usage.input + usage.cacheRead + usage.cacheWrite + (orchestration?.input ?? 0) + (orchestration?.cacheRead ?? 0);
 	const rates = resolveTokenCost(cost, promptInputTokens);
-	usage.cost.input = (rates.input / 1000000) * (usage.input + (orchestration?.input ?? 0));
-	usage.cost.output = (rates.output / 1000000) * (usage.output + (orchestration?.output ?? 0));
-	usage.cost.cacheRead = (rates.cacheRead / 1000000) * (usage.cacheRead + (orchestration?.cacheRead ?? 0));
-	usage.cost.cacheWrite = cacheWriteCost(rates, usage);
-	usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
+	const estimate = {
+		input: (rates.input / 1_000_000) * (usage.input + (orchestration?.input ?? 0)),
+		output: (rates.output / 1_000_000) * (usage.output + (orchestration?.output ?? 0)),
+		cacheRead: (rates.cacheRead / 1_000_000) * (usage.cacheRead + (orchestration?.cacheRead ?? 0)),
+		cacheWrite: cacheWriteCost(rates, usage),
+		total: 0,
+	};
+	estimate.total = estimate.input + estimate.output + estimate.cacheRead + estimate.cacheWrite;
+	usage.cost.estimate = estimate;
+
+	if (usage.cost.hadActualCost) {
+		const reportedTotal = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
+		if (usage.cost.total === 0 && reportedTotal > 0) usage.cost.total = reportedTotal;
+		return usage.cost;
+	}
+
+	usage.cost.input = estimate.input;
+	usage.cost.output = estimate.output;
+	usage.cost.cacheRead = estimate.cacheRead;
+	usage.cost.cacheWrite = estimate.cacheWrite;
+	usage.cost.total = estimate.total;
 	return usage.cost;
 }
 

@@ -54,6 +54,7 @@ function createPathContext(): SegmentContext {
 			orchestrationCacheRead: 0,
 			premiumRequests: 0,
 			cost: 0,
+			costByok: 0,
 			tokensPerSecond: null,
 		},
 		contextPercent: 0,

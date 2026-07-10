@@ -451,14 +451,14 @@ const tokenRateSegment: StatusLineSegment = {
 const costSegment: StatusLineSegment = {
 	id: "cost",
 	render(ctx) {
-		const { cost, premiumRequests } = ctx.usageStats;
+		const { cost, costByok, premiumRequests } = ctx.usageStats;
 		const advisorCost = ctx.session.getAdvisorCost?.() ?? 0;
 		const normalizedPremiumRequests = normalizePremiumRequests(premiumRequests);
 		const state = ctx.session.state;
 		const usingSubscription = state.model ? (ctx.session.modelRegistry?.isUsingOAuth(state.model) ?? false) : false;
 		const advisorUsingSubscription = ctx.session.isAdvisorUsingSubscription?.() ?? false;
 
-		if (!cost && !advisorCost && !usingSubscription && !normalizedPremiumRequests) {
+		if (!cost && !costByok && !advisorCost && !usingSubscription && !normalizedPremiumRequests) {
 			return { content: "", visible: false };
 		}
 
@@ -470,6 +470,7 @@ const costSegment: StatusLineSegment = {
 				theme.getSymbolPreset() === "nerd" && theme.icon.subscription ? theme.icon.subscription : "(sub)",
 			);
 		}
+		if (costByok) billingParts.push(`${theme.icon.key}$${costByok.toFixed(2)}`);
 		if (normalizedPremiumRequests) billingParts.push(`★ ${formatNumber(normalizedPremiumRequests)}`);
 		if (advisorCost) {
 			const prefix = billingParts.length ? "+ " : "";

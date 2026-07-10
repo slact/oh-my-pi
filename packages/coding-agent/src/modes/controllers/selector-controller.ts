@@ -616,6 +616,10 @@ export class SelectorController {
 				this.ctx.rebuildChatFromMessages();
 				this.ctx.ui.resetDisplay();
 				break;
+			case "display.activityFps":
+				this.ctx.ui.setActivityFps(typeof value === "number" ? value : Number(value));
+				this.ctx.ui.requestRender();
+				break;
 			case "tui.tight":
 				setTuiTight(value as boolean);
 				this.ctx.ui.invalidate();
