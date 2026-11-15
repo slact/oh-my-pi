@@ -223,6 +223,10 @@
 - Fixed fallback model selection so roles are offered only models they can use, excluding incompatible image and speech models.
 - Fixed macOS spelling assistance, autocorrect, replacements, and word completion for shell (`!`) and Python (`$`) drafts.
 
+### Added
+
+- Added the billed cost to each request's transcript usage row, alongside tokens, TTFT, and throughput.
+
 ## [18.20.1] - 2026-11-14
 
 ### Added
