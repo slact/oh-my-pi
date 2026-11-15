@@ -113,6 +113,17 @@ function usageThroughput(usage: Usage, durationMs: number | undefined): number |
 	return (usage.output / durationMs) * 1000;
 }
 
+/**
+ * Billed cost of a single request, at the precision per-call amounts need.
+ * Omitted when nothing was billed; sub-0.0001 totals keep an explicit bound
+ * instead of rendering as `$0.0000`.
+ */
+function requestCost(usage: Usage): string | undefined {
+	const total = usage.cost.total;
+	if (!Number.isFinite(total) || total <= 0) return undefined;
+	return total < 0.0001 ? "<$0.0001" : `$${total.toFixed(4)}`;
+}
+
 /** Every metric except throughput, which the native row declares as a `rate`. */
 function usageRowBaseSpecs(usage: Usage, ttftMs?: number, timestamp?: number, turnElapsedMs?: number): MetricSpec[] {
 	const totalInput = usage.input + usage.cacheWrite;
@@ -136,6 +147,10 @@ function usageRowBaseSpecs(usage: Usage, ttftMs?: number, timestamp?: number, tu
 	}
 	if (ttftMs && ttftMs > 0) {
 		specs.push({ leading: theme.icon.time, value: `${(ttftMs / 1000).toFixed(1)}s` });
+	}
+	const cost = requestCost(usage);
+	if (cost !== undefined) {
+		specs.push({ value: cost });
 	}
 	return specs;
 }
@@ -187,8 +202,8 @@ class UsageRowBlock extends Container {
 
 	/**
 	 * One quiet mono line (`18:02 · Δ 6.2s · in 18.4K · out 640 · cache 12K ·
-	 * ttft 0.9s · 96 tok/s`): worded metrics instead of the ANSI icons, the
-	 * full timestamp in the tooltip, and throughput as a `rate`.
+	 * ttft 0.9s · $0.0012 · 96 tok/s`): worded metrics instead of the ANSI
+	 * icons, the full timestamp in the tooltip, and throughput as a `rate`.
 	 */
 	override describe(cx?: DescribeContext): NativeNode {
 		// The terminal's clock: the process locale doesn't reliably carry the user's 12/24-hour choice.
@@ -213,6 +228,8 @@ class UsageRowBlock extends Container {
 		parts.push(`in ${formatNumber(usage.input + usage.cacheWrite)}`, `out ${formatNumber(usage.output)}`);
 		if (usage.cacheRead > 0) parts.push(`cache ${formatNumber(usage.cacheRead)}`);
 		if (this.#ttftMs && this.#ttftMs > 0) parts.push(`ttft ${(this.#ttftMs / 1000).toFixed(1)}s`);
+		const cost = requestCost(usage);
+		if (cost !== undefined) parts.push(cost);
 		const children: NativeChild[] = [text([span(parts.join(" · "), "dim")])];
 		const tokPerSec = usageThroughput(usage, this.#durationMs);
 		if (tokPerSec !== undefined) {

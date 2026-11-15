@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added the billed cost to each request's transcript usage row, alongside tokens, TTFT, and throughput.
+
 ## [18.20.1] - 2026-11-14
 
 ### Added
